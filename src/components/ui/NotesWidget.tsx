@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import { StickyNote, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useSystemStore } from '@/store/useSystemStore';
 
 export default function NotesWidget() {
-  const [note, setNote] = useState('Construire le futur du Web OS...');
+  const { notes, setNotes } = useSystemStore();
 
   return (
     <motion.div 
@@ -19,13 +20,20 @@ export default function NotesWidget() {
         <span className="text-[10px] font-bold uppercase tracking-widest">Note Rapide</span>
       </div>
       <textarea 
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
         className="flex-1 bg-transparent text-yellow-900 font-medium text-lg outline-none resize-none placeholder:text-yellow-900/20"
         placeholder="Écrivez quelque chose..."
       />
       <div className="flex justify-end mt-2">
-        <button className="w-8 h-8 rounded-full bg-yellow-900/10 flex items-center justify-center hover:bg-yellow-900/20 transition-colors">
+        <button 
+          onClick={() => {
+            const timestamp = new Date().toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            setNotes(notes ? `${notes}\n\n--- ${timestamp} ---\n` : `--- ${timestamp} ---\n`);
+          }}
+          className="w-8 h-8 rounded-full bg-yellow-900/10 flex items-center justify-center hover:bg-yellow-900/20 transition-colors"
+          title="Nouvelle section"
+        >
           <Plus className="w-4 h-4 text-yellow-900" />
         </button>
       </div>

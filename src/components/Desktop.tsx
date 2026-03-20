@@ -9,13 +9,25 @@ import Finder from './ui/Finder';
 import WeatherWidget from './ui/WeatherWidget';
 import NotesWidget from './ui/NotesWidget';
 import Spotlight from './ui/Spotlight';
+import ContextMenu from './ui/ContextMenu';
+import WallpaperPicker from './ui/WallpaperPicker';
+import AppPicker from './ui/AppPicker';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { LogIn, Loader2, LogOut, Plus, Settings } from 'lucide-react';
+import { LogIn, Loader2, LogOut, Plus, Settings, StickyNote } from 'lucide-react';
 
 export default function Desktop() {
-  const { wallpaper, isSettingsOpen, setSettingsOpen, activeApp, setActiveApp, fetchData, isLoading } = useSystemStore();
+  const { 
+    wallpaper, setWallpaper, wallpaperHistory, 
+    isSettingsOpen, setSettingsOpen, 
+    isWallpaperPickerOpen, setWallpaperPickerOpen, 
+    isAppPickerOpen, setAppPickerOpen, 
+    theme, toggleTheme,
+    showWidgets, toggleWidgets,
+    activeApp, setActiveApp, fetchData, isLoading, setContextMenu 
+  } = useSystemStore();
   const { data: session, status } = useSession();
   
   const [loginName, setLoginName] = React.useState('');
@@ -25,6 +37,14 @@ export default function Desktop() {
   const [authorizedUsers, setAuthorizedUsers] = React.useState<string[]>([]);
   const [selectedUser, setSelectedUser] = React.useState<string | null>(null);
   const [loginError, setLoginError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+  }, [theme]);
 
   // Load users from localStorage
   React.useEffect(() => {
@@ -98,7 +118,10 @@ export default function Desktop() {
   }
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-black font-sans">
+    <main className={cn(
+            "relative h-screen w-screen overflow-hidden transition-colors duration-500 font-sans",
+            theme === 'dark' ? 'bg-black text-white' : 'bg-white text-black'
+          )}>
       <AnimatePresence mode="wait">
         {!session ? (
           <motion.div 
@@ -113,7 +136,10 @@ export default function Desktop() {
               className="absolute inset-0 z-0 bg-cover bg-center scale-105 transition-all duration-1000"
               style={{ backgroundImage: `url(${wallpaper})` }}
             />
-            <div className="absolute inset-0 z-10 backdrop-blur-md bg-black/20" />
+            <div className={cn(
+              "absolute inset-0 z-10 backdrop-blur-md transition-colors duration-500",
+              theme === 'dark' ? "bg-black/20" : "bg-white/20"
+            )} />
 
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -241,6 +267,45 @@ export default function Desktop() {
                 key="desktop"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu(true, e.clientX, e.clientY, [
+                    { 
+                      label: "Fond d'écran", 
+                      icon: "Image", 
+                      action: () => setWallpaperPickerOpen(true)
+                    },
+                    { 
+                      label: theme === 'dark' ? "Mode Clair" : "Mode Sombre", 
+                      icon: theme === 'dark' ? "Sun" : "Moon", 
+                      action: () => toggleTheme() 
+                    },
+                    { 
+                      label: showWidgets ? "Masquer les widgets" : "Afficher les widgets", 
+                      icon: showWidgets ? "EyeOff" : "Eye", 
+                      action: () => toggleWidgets() 
+                    },
+                    { separator: true },
+                    { 
+                      label: "Ajouter une application", 
+                      icon: "PlusCircle", 
+                      action: () => setAppPickerOpen(true) 
+                    },
+                    { label: "Préférences du Dock", icon: "Layers", action: () => setSettingsOpen(true, 'dock') },
+                    { 
+                      label: "Inspecter le code", 
+                      icon: "Github", 
+                      action: () => window.open('https://github.com', '_blank') 
+                    },
+                    { separator: true },
+                    { 
+                      label: session ? "Déconnexion" : "Connexion", 
+                      icon: session ? "LogOut" : "LogIn", 
+                      action: () => session ? signOut() : signIn() 
+                    },
+                    { label: "Réglages Système", icon: "Settings", action: () => setSettingsOpen(true) },
+                  ]);
+                }}
                 className="absolute inset-0 z-0"
               >
             {/* Dynamic Wallpaper */}
@@ -248,9 +313,15 @@ export default function Desktop() {
               className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000 scale-[1.02]"
               style={{ 
                 backgroundImage: `url(${wallpaper})`,
-                filter: (isSettingsOpen || activeApp) ? 'blur(20px) brightness(0.7)' : 'blur(0px) brightness(1)'
+                filter: (isSettingsOpen || activeApp) ? 'brightness(0.8)' : 'brightness(1)'
               }}
             />
+            
+            {/* Theme Overlay */}
+            <div className={cn(
+              "absolute inset-0 z-[1] pointer-events-none transition-colors duration-500",
+              theme === 'light' ? "bg-white/10" : "bg-transparent"
+            )} />
 
             {/* Settings Trigger - Top Right Corner */}
             <div className="absolute top-6 right-6 z-50">
@@ -274,6 +345,36 @@ export default function Desktop() {
 
             {/* Spotlight Search */}
             <Spotlight />
+
+            {/* Global Context Menu */}
+            <ContextMenu />
+
+            {/* Desktop Widgets */}
+            <AnimatePresence>
+              {showWidgets && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="absolute inset-0 z-0 pointer-events-none"
+                >
+                  <div className="absolute top-12 left-12 grid grid-cols-1 gap-6 pointer-events-auto">
+                    <WeatherWidget />
+                    <NotesWidget />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Clock />
+            
+            <AnimatePresence>
+              {isWallpaperPickerOpen && <WallpaperPicker />}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {isAppPickerOpen && <AppPicker />}
+            </AnimatePresence>
 
             {/* Settings Modal */}
             <AnimatePresence>

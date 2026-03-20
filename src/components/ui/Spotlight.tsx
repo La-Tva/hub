@@ -5,12 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Command, CornerDownLeft, Calculator } from 'lucide-react';
 import { useSystemStore, AppConfig } from '@/store/useSystemStore';
 import Image from 'next/image';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
 
 type SpotlightResult = 
   | { type: 'app'; data: AppConfig }

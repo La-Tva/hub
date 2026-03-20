@@ -31,6 +31,7 @@ export async function PATCH(request: Request) {
   }
   if (body.theme) updateData["settings.theme"] = body.theme;
   if (body.clockFormat) updateData["settings.clockFormat"] = body.clockFormat;
+  if (body.notes !== undefined) updateData["settings.notes"] = body.notes;
 
   const user = await User.findOneAndUpdate(
     { email: session.user.email },

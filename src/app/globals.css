@@ -9,6 +9,18 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
+  --glass-bg: rgba(0, 0, 0, 0.3);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --text-primary: 255, 255, 255;
+  --text-secondary: rgba(255, 255, 255, 0.4);
+}
+
+.light {
+  --foreground-rgb: 0, 0, 0;
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --text-primary: 0, 0, 0;
+  --text-secondary: rgba(0, 0, 0, 0.4);
 }
 
 body {
@@ -19,6 +31,11 @@ body {
   width: 100vw;
   user-select: none;
   font-family: var(--font-sans);
+  transition: background-color 0.5s ease;
+}
+
+.light body {
+  background: white;
 }
 
 @utility glass {
@@ -29,10 +46,10 @@ body {
 }
 
 @utility glass-dark {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--glass-bg);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
 }
 
 @utility custom-scrollbar {

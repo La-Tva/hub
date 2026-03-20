@@ -4,31 +4,28 @@ import React, { useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, MotionValue } from 'framer-motion';
 import { useSystemStore, AppConfig } from '@/store/useSystemStore';
 import Image from 'next/image';
+import { cn } from '../../lib/utils';
 
-const DOCK_HEIGHT = 72;
-const ICON_SIZE = 50;
-const MAGNIFICATION = 2.4;
-const DISTANCE = 140;
-
-function DockIcon({ app, mouseX, priority }: { app: AppConfig; mouseX: MotionValue; priority?: boolean }) {
+function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConfig; mouseX: MotionValue<{ x: number; y: number }>; priority?: boolean; size: number; mag: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const { setActiveApp, setSettingsOpen } = useSystemStore();
 
   const distance = useTransform(mouseX, (val) => {
-    const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0 };
-    return val - bounds.x - bounds.width / 2;
+    const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0, y: 0, height: 0 };
+    // Handle both vertical and horizontal mouse distance
+    const center = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2
+    };
+    return Math.sqrt(Math.pow(val.x - center.x, 2) + Math.pow(val.y - center.y, 2));
   });
 
-  const sizeTransform = useTransform(distance, [-DISTANCE, 0, DISTANCE], [ICON_SIZE, ICON_SIZE * MAGNIFICATION, ICON_SIZE]);
+  const sizeTransform = useTransform(distance, [0, 140], [baseSize * mag, baseSize]);
   const size = useSpring(sizeTransform, {
     mass: 0.1,
     stiffness: 150,
     damping: 15,
   });
-
-  // Vertical displacement (Liquid Style)
-  const yTransform = useTransform(sizeTransform, [ICON_SIZE, ICON_SIZE * MAGNIFICATION], [0, -30]);
-  const y = useSpring(yTransform, { stiffness: 150, damping: 15 });
 
   const handleClick = () => {
     if (app.id === 'settings') {
@@ -46,8 +43,8 @@ function DockIcon({ app, mouseX, priority }: { app: AppConfig; mouseX: MotionVal
   return (
     <motion.div
       ref={ref}
-      style={{ width: size, height: size, y }}
-      className="relative flex items-center justify-center cursor-pointer group z-10 origin-bottom"
+      style={{ width: size, height: size }}
+      className="relative flex items-center justify-center cursor-pointer group z-10"
       onClick={handleClick}
       whileTap={{ scale: 0.9 }}
     >
@@ -80,34 +77,123 @@ function DockIcon({ app, mouseX, priority }: { app: AppConfig; mouseX: MotionVal
 }
 
 export default function Dock() {
-  const { apps } = useSystemStore();
-  const mouseX = useMotionValue(Infinity);
+  const { apps, setContextMenu, setSettingsOpen, setAppPickerOpen, dockPosition, setDockPosition, dockSize, setDockSize } = useSystemStore();
+  const mouseX = useMotionValue({ x: Infinity, y: Infinity });
+
+  const getIconSize = () => {
+    switch (dockSize) {
+      case 'small': return 40;
+      case 'large': return 68;
+      default: return 54;
+    }
+  };
+
+  const getMagnification = () => {
+    switch (dockSize) {
+      case 'small': return 1.8;
+      case 'large': return 2.6;
+      default: return 2.2;
+    }
+  };
+
+  const nextPosition = () => {
+    const positions: ('bottom' | 'top' | 'left' | 'right' | 'center')[] = ['bottom', 'left', 'top', 'right', 'center'];
+    const currentIndex = positions.indexOf(dockPosition);
+    setDockPosition(positions[(currentIndex + 1) % positions.length]);
+  };
+
+  const nextSize = () => {
+    const sizes: ('small' | 'medium' | 'large')[] = ['small', 'medium', 'large'];
+    const currentIndex = sizes.indexOf(dockSize);
+    setDockSize(sizes[(currentIndex + 1) % sizes.length]);
+  };
+
+  const isVertical = dockPosition === 'left' || dockPosition === 'right';
+
+  const positionClasses = {
+    bottom: "bottom-6 left-1/2 -translate-x-1/2 flex-row",
+    top: "top-6 left-1/2 -translate-x-1/2 flex-row",
+    left: "left-6 top-1/2 -translate-y-1/2 flex-col",
+    right: "right-6 top-1/2 -translate-y-1/2 flex-col",
+    center: "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex-row"
+  };
+
+  const baseSize = getIconSize();
+  const mag = getMagnification();
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+    <div 
+      className={cn(
+        "fixed z-[50] pointer-events-none flex items-center justify-center",
+        positionClasses[dockPosition]
+      )}
+    >
       <div className="relative pointer-events-auto">
         {/* The Thin Glass Shelf - Centered Floating Pill */}
         <motion.div
-          onMouseMove={(e) => mouseX.set(e.pageX)}
-          onMouseLeave={() => mouseX.set(Infinity)}
-          className="relative h-[72px] px-8 flex items-end pb-2.5 gap-4 rounded-[40px] border border-white/10 shadow-[0_25px_60px_-10px_rgba(0,0,0,0.6)] glass-dark overflow-visible"
+          onMouseMove={(e) => mouseX.set({ x: e.pageX, y: e.pageY })}
+          onMouseLeave={() => mouseX.set({ x: Infinity, y: Infinity })}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenu(true, e.clientX, e.clientY, [
+              { label: "Ajouter une application", icon: "PlusCircle", action: () => setAppPickerOpen(true) },
+              { label: "Préférences du Dock", icon: "Layers", action: () => setSettingsOpen(true, 'dock') },
+              { separator: true },
+              { 
+                label: "Position du Dock", 
+                icon: "Monitor", 
+                submenu: [
+                  { label: "Bas", icon: dockPosition === 'bottom' ? 'Check' : undefined, action: () => setDockPosition('bottom') },
+                  { label: "Gauche", icon: dockPosition === 'left' ? 'Check' : undefined, action: () => setDockPosition('left') },
+                  { label: "Haut", icon: dockPosition === 'top' ? 'Check' : undefined, action: () => setDockPosition('top') },
+                  { label: "Droite", icon: dockPosition === 'right' ? 'Check' : undefined, action: () => setDockPosition('right') },
+                  { label: "Centre", icon: dockPosition === 'center' ? 'Check' : undefined, action: () => setDockPosition('center') },
+                ]
+              },
+              { 
+                label: "Taille du Dock", 
+                icon: "Monitor", 
+                submenu: [
+                  { label: "Petit", icon: dockSize === 'small' ? 'Check' : undefined, action: () => setDockSize('small') },
+                  { label: "Moyen", icon: dockSize === 'medium' ? 'Check' : undefined, action: () => setDockSize('medium') },
+                  { label: "Grand", icon: dockSize === 'large' ? 'Check' : undefined, action: () => setDockSize('large') },
+                ]
+              },
+            ]);
+          }}
+          style={{
+            height: isVertical ? 'auto' : baseSize + 24,
+            width: isVertical ? baseSize + 24 : 'auto',
+            padding: '12px',
+          }}
+          className={cn(
+            "relative flex items-center gap-3 rounded-[32px] border border-white/10 shadow-[0_25px_60px_-10px_rgba(0,0,0,0.6)] glass-dark transition-all duration-500",
+            isVertical ? "flex-col py-6" : "flex-row px-6"
+          )}
         >
-          {/* Top reflective edge */}
-          <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          {/* Top reflective edge - only for horizontal */}
+          {!isVertical && (
+            <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          )}
           
           {/* Icons Container */}
-          <div className="flex items-end gap-2.5 relative">
+          <div className={cn("flex gap-2.5 relative items-center", isVertical ? "flex-col" : "flex-row")}>
             {apps.map((app, index) => (
-              <DockIcon key={app.id} app={app} mouseX={mouseX} priority={index < 4} />
+              <DockIcon 
+                key={app.id} 
+                app={app} 
+                mouseX={mouseX} 
+                priority={index < 4} 
+                size={baseSize}
+                mag={mag}
+              />
             ))}
           </div>
         </motion.div>
         
         {/* Ambient Glow */}
         <div className="absolute inset-0 -z-10 bg-blue-500/10 blur-[120px] rounded-full opacity-40 scale-[2.5]" />
-        
-        {/* Floor Shadow/Reflection Glow */}
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[90%] h-4 bg-white/5 blur-2xl rounded-full opacity-30" />
       </div>
     </div>
   );

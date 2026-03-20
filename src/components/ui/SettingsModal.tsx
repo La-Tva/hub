@@ -1,13 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSystemStore, AppConfig } from '@/store/useSystemStore';
-import { Plus, Trash2, X, Globe, Link as LinkIcon, Image as ImageIcon, LogOut, Settings } from 'lucide-react';
+import { Plus, Trash2, X, Globe, Link as LinkIcon, Image as ImageIcon, LogOut, Settings, GripVertical } from 'lucide-react';
 import { signOut } from 'next-auth/react';
-import { motion } from 'framer-motion';
+import { motion, Reorder } from 'framer-motion';
 
 export default function SettingsModal() {
-  const { wallpaper, setWallpaper, wallpaperHistory, deleteWallpaperFromHistory, apps, addApp, removeApp, setSettingsOpen } = useSystemStore();
+  const { wallpaper, setWallpaper, wallpaperHistory, deleteWallpaperFromHistory, apps, addApp, removeApp, reorderApps, setSettingsOpen, settingsSection } = useSystemStore();
+  
+  const wallpaperRef = useRef<HTMLDivElement>(null);
+  const appsRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (settingsSection) {
+      const target = settingsSection === 'wallpaper' ? wallpaperRef.current : appsRef.current;
+      if (target) {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    }
+  }, [settingsSection]);
   const [newAppName, setNewAppName] = useState('');
   const [newAppUrl, setNewAppUrl] = useState('');
   const [newAppIcon, setNewAppIcon] = useState('');
@@ -87,10 +102,10 @@ export default function SettingsModal() {
         <h2 className="text-2xl font-semibold text-white tracking-tight">Préférences Système</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar pb-10">
+      <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar pb-10" ref={scrollContainerRef}>
         
         {/* Appearance Section */}
-        <div className="bg-black/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
+        <div ref={wallpaperRef} className="bg-black/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
               <ImageIcon className="w-4 h-4" />
@@ -151,7 +166,7 @@ export default function SettingsModal() {
         </div>
 
         {/* Dock Apps Section */}
-        <div className="bg-black/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
+        <div ref={appsRef} className="bg-black/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 rounded-xl bg-green-500/10 text-green-400">
               <Globe className="w-4 h-4" />
@@ -207,11 +222,27 @@ export default function SettingsModal() {
             </div>
           </form>
 
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+          <Reorder.Group 
+            axis="y" 
+            values={apps} 
+            onReorder={reorderApps} 
+            className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"
+          >
             {apps.map((app) => (
-              <div key={app.id} className="group relative bg-black/20 p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+              <Reorder.Item 
+                key={app.id} 
+                value={app}
+                whileDrag={{ 
+                  scale: 1.02, 
+                  backgroundColor: "rgba(255, 255, 255, 0.15)",
+                  boxShadow: "0px 20px 40px rgba(0,0,0,0.4)",
+                  zIndex: 50
+                }}
+                className="group relative bg-black/20 p-4 rounded-2xl border border-white/5 hover:border-white/10 cursor-grab active:cursor-grabbing"
+              >
                 {editingId === app.id ? (
                   <div className="space-y-4">
+                    {/* ... (Existing editing UI remains same but inside the Reorder.Item) */}
                     <div className="flex gap-4">
                       <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center p-2 border border-white/10 relative group/editicon overflow-hidden">
                         <img src={editIcon || app.icon} className="w-full h-full object-contain" alt="Preview" />
@@ -264,6 +295,9 @@ export default function SettingsModal() {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
+                      <div className="p-1 cursor-grab active:cursor-grabbing text-white/10 group-hover:text-white/30 transition-colors">
+                        <GripVertical className="w-4 h-4" />
+                      </div>
                       <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center p-2 overflow-hidden border border-white/5 shadow-inner">
                         <img src={app.icon} className="w-full h-full object-contain" alt={app.name} />
                       </div>
@@ -292,9 +326,9 @@ export default function SettingsModal() {
                     </div>
                   </div>
                 )}
-              </div>
+              </Reorder.Item>
             ))}
-          </div>
+          </Reorder.Group>
         </div>
 
         {/* Danger Zone / Session */}

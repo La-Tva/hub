@@ -1,44 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 export default function Clock() {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  };
+  const hours = time.getHours().toString().padStart(2, '0');
+  const minutes = time.getMinutes().toString().padStart(2, '0');
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-      className="flex flex-col items-center justify-center select-none"
+      className="absolute top-[200px] left-1/2 -translate-x-1/2 z-0 pointer-events-none select-none text-center"
     >
-      <h1 className="text-[12rem] font-medium tracking-tighter text-white/90 drop-shadow-2xl flex items-center gap-4">
-        {formatTime(time)}
+      <h1 className="text-[64px] font-bold tracking-tighter drop-shadow-2xl" style={{ color: 'var(--foreground-rgb)' }}>
+        {hours}:{minutes}
       </h1>
-      <motion.p 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="text-2xl font-light text-white/60 tracking-widest uppercase"
-      >
+      <p className="text-sm font-medium uppercase tracking-[0.3em] -mt-2" style={{ color: 'var(--text-secondary)' }}>
         {time.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-      </motion.p>
+      </p>
     </motion.div>
   );
 }

@@ -45,6 +45,22 @@ export async function DELETE(request: Request) {
   return NextResponse.json(user.apps);
 }
 
+export async function PUT(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const apps = await request.json();
+  await dbConnect();
+
+  const user = await User.findOneAndUpdate(
+    { email: session.user.email },
+    { $set: { apps } },
+    { new: true }
+  );
+
+  return NextResponse.json(user.apps);
+}
+
 export async function PATCH(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

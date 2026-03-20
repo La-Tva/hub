@@ -28,6 +28,7 @@ const UserSchema = new Schema({
     theme: { type: String, enum: ['light', 'dark'], default: 'dark' },
     clockFormat: { type: String, enum: ['12h', '24h'], default: '24h' },
     wallpaperHistory: { type: [String], default: [] },
+    notes: { type: String, default: '' },
   },
   apps: { type: [AppSchema], default: [] },
   widgets: { type: [WidgetSchema], default: [] },

@@ -14,6 +14,14 @@ interface SystemState {
   wallpaperHistory: string[];
   apps: AppConfig[];
   isSettingsOpen: boolean;
+  isWallpaperPickerOpen: boolean;
+  isAppPickerOpen: boolean;
+  theme: 'dark' | 'light';
+  showWidgets: boolean;
+  notes: string;
+  dockPosition: 'bottom' | 'top' | 'left' | 'right' | 'center';
+  dockSize: 'small' | 'medium' | 'large';
+  settingsSection: string | null;
   activeApp: string | null;
   isLoading: boolean;
   
@@ -21,12 +29,35 @@ interface SystemState {
   fetchData: () => Promise<void>;
   setWallpaper: (url: string) => Promise<void>;
   deleteWallpaperFromHistory: (url: string) => Promise<void>;
-  addApp: (app: AppConfig) => Promise<void>;
+  addApp: (app: Omit<AppConfig, 'id'>) => Promise<void>;
   removeApp: (id: string) => Promise<void>;
   updateApp: (id: string, app: Partial<AppConfig>) => Promise<void>;
-  setSettingsOpen: (isOpen: boolean) => void;
+  reorderApps: (newApps: AppConfig[]) => Promise<void>;
+  setSettingsOpen: (isOpen: boolean, section?: string) => void;
+  setWallpaperPickerOpen: (isOpen: boolean) => void;
+  setAppPickerOpen: (isOpen: boolean) => void;
+  toggleTheme: () => void;
+  toggleWidgets: () => void;
+  setNotes: (notes: string) => void;
+  setDockPosition: (pos: 'bottom' | 'top' | 'left' | 'right' | 'center') => void;
+  setDockSize: (size: 'small' | 'medium' | 'large') => void;
   setActiveApp: (id: string | null) => void;
+  contextMenu: {
+    isOpen: boolean;
+    x: number;
+    y: number;
+    items: ContextMenuItem[];
+  };
+  setContextMenu: (isOpen: boolean, x?: number, y?: number, items?: ContextMenuItem[]) => void;
 }
+
+export type ContextMenuItem = {
+  label?: string;
+  icon?: string;
+  action?: () => void;
+  separator?: boolean;
+  submenu?: ContextMenuItem[];
+};
 
 const DEFAULT_APPS: AppConfig[] = [];
 
@@ -37,8 +68,22 @@ export const useSystemStore = create<SystemState>()(
       wallpaperHistory: [],
       apps: DEFAULT_APPS,
       isSettingsOpen: false,
+      isWallpaperPickerOpen: false,
+      isAppPickerOpen: false,
+      theme: 'dark',
+      showWidgets: true,
+      notes: '',
+      dockPosition: 'bottom',
+      dockSize: 'medium',
+      settingsSection: null,
       activeApp: null,
       isLoading: false,
+      contextMenu: {
+        isOpen: false,
+        x: 0,
+        y: 0,
+        items: [],
+      },
 
       fetchData: async () => {
         set({ isLoading: true });
@@ -51,6 +96,8 @@ export const useSystemStore = create<SystemState>()(
             const settings = await settingsRes.json();
             if (settings.wallpaper) set({ wallpaper: settings.wallpaper });
             if (settings.wallpaperHistory) set({ wallpaperHistory: settings.wallpaperHistory });
+            if (settings.notes !== undefined) set({ notes: settings.notes });
+            if (settings.theme) set({ theme: settings.theme });
           }
           if (appsRes.ok) {
             let savedApps = await appsRes.json();
@@ -110,12 +157,14 @@ export const useSystemStore = create<SystemState>()(
         }
       },
 
-      addApp: async (app) => {
-        set((state) => ({ apps: [...state.apps, app] }));
+      addApp: async (appData) => {
+        const id = Math.random().toString(36).substring(7);
+        const newApp = { ...appData, id };
+        set((state) => ({ apps: [...state.apps, newApp] }));
         try {
           await fetch('/api/apps', {
             method: 'POST',
-            body: JSON.stringify(app),
+            body: JSON.stringify(newApp),
           });
         } catch (error) {
           console.error('Failed to sync app:', error);
@@ -147,9 +196,60 @@ export const useSystemStore = create<SystemState>()(
           console.error('Failed to sync app update:', error);
         }
       },
-
-      setSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
+      
+      reorderApps: async (newApps) => {
+        set({ apps: newApps });
+        
+        // Debounce sync
+        const timeoutId = (globalThis as any)._reorderTimeout;
+        if (timeoutId) clearTimeout(timeoutId);
+        
+        (globalThis as any)._reorderTimeout = setTimeout(async () => {
+          try {
+            await fetch('/api/apps', {
+              method: 'PUT',
+              body: JSON.stringify(newApps),
+            });
+          } catch (error) {
+            console.error('Failed to sync app reordering:', error);
+          }
+        }, 1000); // 1s debounce
+      },
+ 
+      setSettingsOpen: (isOpen, section) => set({ isSettingsOpen: isOpen, settingsSection: section || null }),
+      setWallpaperPickerOpen: (isOpen) => set({ isWallpaperPickerOpen: isOpen }),
+      setAppPickerOpen: (isOpen) => set({ isAppPickerOpen: isOpen }),
+      toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
+      toggleWidgets: () => set((state) => ({ showWidgets: !state.showWidgets })),
+      setNotes: (notes) => {
+        set({ notes });
+        
+        // Debounce sync
+        const timeoutId = (globalThis as any)._notesTimeout;
+        if (timeoutId) clearTimeout(timeoutId);
+        
+        (globalThis as any)._notesTimeout = setTimeout(async () => {
+          try {
+            await fetch('/api/settings', {
+              method: 'PATCH',
+              body: JSON.stringify({ notes }),
+            });
+          } catch (error) {
+            console.error('Failed to sync notes:', error);
+          }
+        }, 1000); // 1s debounce
+      },
+      setDockPosition: (pos) => set({ dockPosition: pos }),
+      setDockSize: (size) => set({ dockSize: size }),
       setActiveApp: (id) => set({ activeApp: id }),
+      setContextMenu: (isOpen, x, y, items) => set({ 
+        contextMenu: { 
+          isOpen, 
+          x: x || 0, 
+          y: y || 0, 
+          items: items || [] 
+        } 
+      }),
     }),
     {
       name: 'system-storage',
@@ -158,6 +258,11 @@ export const useSystemStore = create<SystemState>()(
         wallpaper: state.wallpaper,
         wallpaperHistory: state.wallpaperHistory,
         isSettingsOpen: state.isSettingsOpen,
+        theme: state.theme,
+        showWidgets: state.showWidgets,
+        notes: state.notes,
+        dockPosition: state.dockPosition,
+        dockSize: state.dockSize,
         activeApp: state.activeApp,
       }),
     }
