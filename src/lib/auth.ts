@@ -1,7 +1,7 @@
 import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
 import clientPromise from "./mongo-client";
 import dbConnect from "./db";
 import User from "@/models/User";
@@ -9,13 +9,7 @@ import bcrypt from "bcryptjs";
 import { NextAuthOptions } from "next-auth";
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise, {
-    collections: {
-      Users: 'hub',
-      Accounts: 'hub_accounts',
-      Sessions: 'hub_sessions',
-    }
-  }),
+  adapter: MongoDBAdapter(clientPromise),
   providers: [
     CredentialsProvider({
       name: "Local Account",
