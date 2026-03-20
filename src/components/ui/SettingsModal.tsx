@@ -84,7 +84,6 @@ export default function SettingsModal() {
     if (!newAppName || !newAppUrl) return;
     
     addApp({
-      id: Math.random().toString(36).substr(2, 9),
       name: newAppName,
       url: newAppUrl.startsWith('http') ? newAppUrl : `https://${newAppUrl}`,
       icon: newAppIcon || 'https://img.icons8.com/isometric/512/empty-box.png',
