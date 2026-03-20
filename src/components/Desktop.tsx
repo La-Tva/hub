@@ -8,6 +8,7 @@ import SettingsModal from './ui/SettingsModal';
 import Finder from './ui/Finder';
 import WeatherWidget from './ui/WeatherWidget';
 import NotesWidget from './ui/NotesWidget';
+import Spotlight from './ui/Spotlight';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useSession, signIn, signOut } from 'next-auth/react';
@@ -270,6 +271,9 @@ export default function Desktop() {
 
             {/* Dock */}
             <Dock />
+
+            {/* Spotlight Search */}
+            <Spotlight />
 
             {/* Settings Modal */}
             <AnimatePresence>
