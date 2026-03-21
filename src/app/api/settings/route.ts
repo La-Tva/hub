@@ -32,6 +32,13 @@ export async function PATCH(request: Request) {
   if (body.theme) updateData["settings.theme"] = body.theme;
   if (body.clockFormat) updateData["settings.clockFormat"] = body.clockFormat;
   if (body.notes !== undefined) updateData["settings.notes"] = body.notes;
+  if (body.pomodoroSettings) {
+    if (body.pomodoroSettings.work) updateData["settings.pomodoroSettings.work"] = body.pomodoroSettings.work;
+    if (body.pomodoroSettings.shortBreak) updateData["settings.pomodoroSettings.shortBreak"] = body.pomodoroSettings.shortBreak;
+    if (body.pomodoroSettings.longBreak) updateData["settings.pomodoroSettings.longBreak"] = body.pomodoroSettings.longBreak;
+  }
+  if (body.isSpotifyActive !== undefined) updateData["settings.isSpotifyActive"] = body.isSpotifyActive;
+  if (body.spotifyPlaylistId) updateData["settings.spotifyPlaylistId"] = body.spotifyPlaylistId;
 
   const user = await User.findOneAndUpdate(
     { email: session.user.email },

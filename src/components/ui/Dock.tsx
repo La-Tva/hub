@@ -1,18 +1,21 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, MotionValue } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform, MotionValue, Reorder } from 'framer-motion';
 import { useSystemStore, AppConfig } from '@/store/useSystemStore';
 import Image from 'next/image';
 import { cn } from '../../lib/utils';
 
 function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConfig; mouseX: MotionValue<{ x: number; y: number }>; priority?: boolean; size: number; mag: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { setActiveApp, setSettingsOpen } = useSystemStore();
+  const { 
+    apps, setActiveApp, setSettingsOpen, setActiveFolderId, 
+    setContextMenu, createFolder, addAppToFolder, removeApp 
+  } = useSystemStore();
 
   const distance = useTransform(mouseX, (val) => {
+    if (val.x === Infinity) return Infinity;
     const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0, y: 0, height: 0 };
-    // Handle both vertical and horizontal mouse distance
     const center = {
       x: bounds.x + bounds.width / 2,
       y: bounds.y + bounds.height / 2
@@ -28,6 +31,11 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
   });
 
   const handleClick = () => {
+    if (app.type === 'folder') {
+      setActiveFolderId(app.id);
+      return;
+    }
+
     if (app.id === 'settings') {
       setSettingsOpen(true);
       return;
@@ -35,9 +43,46 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
     
     if (app.isInternal) {
       setActiveApp(app.id);
-    } else {
+    } else if (app.url) {
       window.open(app.url, '_blank');
     }
+  };
+
+  const renderIcon = () => {
+    if (app.type === 'folder' && app.folderApps) {
+      return (
+        <div className="w-full h-full grid grid-cols-2 gap-0.5 p-1.5 bg-white/5 rounded-[22%] group-hover:bg-white/10 transition-colors">
+          {app.folderApps.slice(0, 4).map((fApp, i) => (
+            <div key={fApp.id} className="relative w-full h-full">
+              <Image
+                src={fApp.icon}
+                alt=""
+                fill
+                className="object-contain p-0.5"
+                unoptimized
+                draggable={false}
+              />
+            </div>
+          ))}
+          {/* Fill empty slots with placeholders if < 4 apps */}
+          {[...Array(Math.max(0, 4 - app.folderApps.length))].map((_, i) => (
+            <div key={`empty-${i}`} className="w-full h-full bg-white/5 rounded-sm" />
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <Image
+        src={app.icon}
+        alt={app.name}
+        fill
+        className="object-contain p-1 transform-gpu transition-transform group-hover/icon:scale-110"
+        unoptimized
+        priority={priority}
+        draggable={false}
+      />
+    );
   };
 
   return (
@@ -45,8 +90,44 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
       ref={ref}
       style={{ width: size, height: size }}
       className="relative flex items-center justify-center cursor-pointer group z-10"
-      onClick={handleClick}
+      onPointerDown={(e) => setActiveFolderId(null)} // Close folder if dragging starts
+      onClick={(e) => {
+        // Prevent click if we just dragged (Reorder handles this mostly, but good to be safe)
+        handleClick();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const folders = apps.filter(a => a.type === 'folder' && a.id !== app.id);
+        
+        setContextMenu(true, e.clientX, e.clientY, [
+          { 
+            label: "Déplacer vers un dossier", 
+            icon: "FolderPlus",
+            disabled: app.type === 'folder',
+            submenu: [
+              { 
+                label: "Nouveau dossier...", 
+                icon: "Plus", 
+                action: () => {
+                  const name = prompt('Nom du dossier :');
+                  if (name) createFolder(name, [app.id]);
+                } 
+              },
+              ...folders.map(f => ({
+                label: f.name,
+                icon: "Folder",
+                action: () => addAppToFolder(f.id, app.id)
+              }))
+            ]
+          },
+          { separator: true },
+          { label: "Supprimer", icon: "Trash", action: () => removeApp(app.id), danger: true },
+        ]);
+      }}
       whileTap={{ scale: 0.9 }}
+      whileDrag={{ scale: 1.1, zIndex: 100 }}
     >
       {/* Tooltip with Triangle Pointer (Beak) */}
       <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none transform group-hover:-translate-y-1">
@@ -59,14 +140,7 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
       <div className="relative w-full h-full p-1 drop-shadow-2xl">
         <div className="w-full h-full rounded-[23%] bg-gradient-to-b from-white/10 to-transparent p-[1px] shadow-2xl transition-all group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
           <div className="w-full h-full rounded-[22%] bg-[#121212] overflow-hidden relative group/icon">
-            <Image
-              src={app.icon}
-              alt={app.name}
-              fill
-              className="object-contain p-1 transform-gpu transition-transform group-hover/icon:scale-110"
-              unoptimized
-              priority={priority}
-            />
+            {renderIcon()}
             {/* Glossy Overlay */}
             <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/20 opacity-60 pointer-events-none" />
           </div>
@@ -77,9 +151,29 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
 }
 
 export default function Dock() {
-  const { apps, setContextMenu, setSettingsOpen, setAppPickerOpen, dockPosition, setDockPosition, dockSize, setDockSize } = useSystemStore();
+  const [mounted, setMounted] = React.useState(false);
+  const { 
+    apps, setContextMenu, setSettingsOpen, setAppPickerOpen, 
+    dockPosition, setDockPosition, dockSize, setDockSize,
+    pomodoroMode, pomodoroIsRunning, setDashboardOpen,
+    reorderApps
+  } = useSystemStore();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const mouseX = useMotionValue({ x: Infinity, y: Infinity });
 
+  if (!mounted) return null;
+
+  const getGlowColor = () => {
+    if (!pomodoroIsRunning) return "bg-blue-500/10";
+    if (pomodoroMode === 'work') return "bg-red-500/20";
+    if (pomodoroMode === 'shortBreak') return "bg-green-500/20";
+    return "bg-blue-500/20";
+  };
+  
   const getIconSize = () => {
     switch (dockSize) {
       case 'small': return 40;
@@ -137,6 +231,7 @@ export default function Dock() {
             e.preventDefault();
             e.stopPropagation();
             setContextMenu(true, e.clientX, e.clientY, [
+              { label: "Personnaliser le bureau", icon: "Layout", action: () => setDashboardOpen(true) },
               { label: "Ajouter une application", icon: "PlusCircle", action: () => setAppPickerOpen(true) },
               { label: "Préférences du Dock", icon: "Layers", action: () => setSettingsOpen(true, 'dock') },
               { separator: true },
@@ -178,22 +273,36 @@ export default function Dock() {
           )}
           
           {/* Icons Container */}
-          <div className={cn("flex gap-2.5 relative items-center", isVertical ? "flex-col" : "flex-row")}>
+          <Reorder.Group 
+            axis={isVertical ? "y" : "x"} 
+            values={apps} 
+            onReorder={reorderApps}
+            className={cn("flex gap-2.5 relative items-center", isVertical ? "flex-col" : "flex-row")}
+          >
             {apps.map((app, index) => (
-              <DockIcon 
-                key={app.id} 
-                app={app} 
-                mouseX={mouseX} 
-                priority={index < 4} 
-                size={baseSize}
-                mag={mag}
-              />
+              <Reorder.Item
+                key={app.id}
+                value={app}
+                id={app.id}
+                className="relative"
+              >
+                <DockIcon 
+                  app={app} 
+                  mouseX={mouseX} 
+                  priority={index < 4} 
+                  size={baseSize}
+                  mag={mag}
+                />
+              </Reorder.Item>
             ))}
-          </div>
+          </Reorder.Group>
         </motion.div>
         
         {/* Ambient Glow */}
-        <div className="absolute inset-0 -z-10 bg-blue-500/10 blur-[120px] rounded-full opacity-40 scale-[2.5]" />
+        <div className={cn(
+          "absolute inset-0 -z-10 blur-[120px] rounded-full opacity-40 scale-[2.5] transition-colors duration-1000",
+          getGlowColor()
+        )} />
       </div>
     </div>
   );

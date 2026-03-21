@@ -3,9 +3,11 @@ import mongoose, { Schema, model, models } from 'mongoose';
 const AppSchema = new Schema({
   id: { type: String, required: true },
   name: { type: String, required: true },
-  url: { type: String, required: true },
+  url: { type: String },
   icon: { type: String, required: true },
   isInternal: { type: Boolean, default: false },
+  type: { type: String, enum: ['app', 'folder'], default: 'app' },
+  folderApps: { type: Array, default: [] }
 });
 
 const WidgetSchema = new Schema({
@@ -29,6 +31,13 @@ const UserSchema = new Schema({
     clockFormat: { type: String, enum: ['12h', '24h'], default: '24h' },
     wallpaperHistory: { type: [String], default: [] },
     notes: { type: String, default: '' },
+    pomodoroSettings: {
+      work: { type: Number, default: 25 },
+      shortBreak: { type: Number, default: 5 },
+      longBreak: { type: Number, default: 15 },
+    },
+    isSpotifyActive: { type: Boolean, default: false },
+    spotifyPlaylistId: { type: String, default: '0vvXsWCC9xrXsKd4FyS8kM' },
   },
   apps: { type: [AppSchema], default: [] },
   widgets: { type: [WidgetSchema], default: [] },

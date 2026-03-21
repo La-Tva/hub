@@ -4,9 +4,11 @@ import { persist } from 'zustand/middleware';
 export interface AppConfig {
   id: string;
   name: string;
-  url: string;
+  url?: string;
   icon: string;
   isInternal?: boolean;
+  type?: 'app' | 'folder';
+  folderApps?: AppConfig[];
 }
 
 interface SystemState {
@@ -17,13 +19,31 @@ interface SystemState {
   isWallpaperPickerOpen: boolean;
   isAppPickerOpen: boolean;
   theme: 'dark' | 'light';
-  showWidgets: boolean;
+  showNotes: boolean;
+  showWeather: boolean;
+  showTimer: boolean;
+  showClock: boolean;
   notes: string;
   dockPosition: 'bottom' | 'top' | 'left' | 'right' | 'center';
   dockSize: 'small' | 'medium' | 'large';
   settingsSection: string | null;
   activeApp: string | null;
+  isDashboardOpen: boolean;
+  isFocusOverlayOpen: boolean;
   isLoading: boolean;
+  pomodoroSettings: {
+    work: number;
+    shortBreak: number;
+    longBreak: number;
+  };
+  pomodoroMode: 'work' | 'shortBreak' | 'longBreak';
+  pomodoroTimeLeft: number;
+  pomodoroIsRunning: boolean;
+  pomodoroIsMinimized: boolean;
+  weatherCity: string;
+  isSpotifyActive: boolean;
+  spotifyPlaylistId: string;
+  activeFolderId: string | null;
   
   // Actions
   fetchData: () => Promise<void>;
@@ -33,15 +53,32 @@ interface SystemState {
   removeApp: (id: string) => Promise<void>;
   updateApp: (id: string, app: Partial<AppConfig>) => Promise<void>;
   reorderApps: (newApps: AppConfig[]) => Promise<void>;
+  createFolder: (name: string, appIds: string[]) => Promise<void>;
+  addAppToFolder: (folderId: string, appId: string) => Promise<void>;
+  removeAppFromFolder: (folderId: string, appId: string) => Promise<void>;
   setSettingsOpen: (isOpen: boolean, section?: string) => void;
   setWallpaperPickerOpen: (isOpen: boolean) => void;
   setAppPickerOpen: (isOpen: boolean) => void;
   toggleTheme: () => void;
-  toggleWidgets: () => void;
+  toggleNotes: () => void;
+  toggleWeather: () => void;
+  toggleTimer: () => void;
+  toggleClock: () => void;
   setNotes: (notes: string) => void;
   setDockPosition: (pos: 'bottom' | 'top' | 'left' | 'right' | 'center') => void;
   setDockSize: (size: 'small' | 'medium' | 'large') => void;
   setActiveApp: (id: string | null) => void;
+  setDashboardOpen: (isOpen: boolean) => void;
+  setFocusOverlayOpen: (isOpen: boolean) => void;
+  setPomodoroSettings: (settings: Partial<SystemState['pomodoroSettings']>) => Promise<void>;
+  setPomodoroMode: (mode: SystemState['pomodoroMode']) => void;
+  setPomodoroTimeLeft: (time: number) => void;
+  setPomodoroIsRunning: (isRunning: boolean) => void;
+  setPomodoroMinimized: (isMinimized: boolean) => void;
+  setWeatherCity: (city: string) => void;
+  setSpotifyActive: (active: boolean) => void;
+  setSpotifyPlaylistId: (id: string) => void;
+  setActiveFolderId: (id: string | null) => void;
   contextMenu: {
     isOpen: boolean;
     x: number;
@@ -57,6 +94,8 @@ export type ContextMenuItem = {
   action?: () => void;
   separator?: boolean;
   submenu?: ContextMenuItem[];
+  disabled?: boolean;
+  danger?: boolean;
 };
 
 const DEFAULT_APPS: AppConfig[] = [];
@@ -71,13 +110,27 @@ export const useSystemStore = create<SystemState>()(
       isWallpaperPickerOpen: false,
       isAppPickerOpen: false,
       theme: 'dark',
-      showWidgets: true,
+      showNotes: true,
+      showWeather: true,
+      showTimer: true,
+      showClock: true,
       notes: '',
       dockPosition: 'bottom',
       dockSize: 'medium',
       settingsSection: null,
       activeApp: null,
+      isDashboardOpen: false,
+      isFocusOverlayOpen: false,
       isLoading: false,
+      pomodoroSettings: { work: 25, shortBreak: 5, longBreak: 15 },
+      pomodoroMode: 'work',
+      pomodoroTimeLeft: 25 * 60,
+      pomodoroIsRunning: false,
+      pomodoroIsMinimized: false,
+      weatherCity: 'Paris',
+      isSpotifyActive: false,
+      spotifyPlaylistId: '0vvXsWCC9xrXsKd4FyS8kM',
+      activeFolderId: null,
       contextMenu: {
         isOpen: false,
         x: 0,
@@ -98,6 +151,15 @@ export const useSystemStore = create<SystemState>()(
             if (settings.wallpaperHistory) set({ wallpaperHistory: settings.wallpaperHistory });
             if (settings.notes !== undefined) set({ notes: settings.notes });
             if (settings.theme) set({ theme: settings.theme });
+            if (settings.weatherCity) set({ weatherCity: settings.weatherCity });
+            if (settings.pomodoroSettings) {
+              set({ 
+                pomodoroSettings: settings.pomodoroSettings,
+                pomodoroTimeLeft: settings.pomodoroSettings.work * 60 
+              });
+            }
+            if (settings.isSpotifyActive !== undefined) set({ isSpotifyActive: settings.isSpotifyActive });
+            if (settings.spotifyPlaylistId) set({ spotifyPlaylistId: settings.spotifyPlaylistId });
           }
           if (appsRes.ok) {
             let savedApps = await appsRes.json();
@@ -215,12 +277,99 @@ export const useSystemStore = create<SystemState>()(
           }
         }, 1000); // 1s debounce
       },
+
+      createFolder: async (name, appIds) => {
+        const apps = get().apps;
+        const selectedApps = apps.filter(a => appIds.includes(a.id));
+        const remainingApps = apps.filter(a => !appIds.includes(a.id));
+        
+        const folder: AppConfig = {
+          id: Math.random().toString(36).substring(7),
+          name,
+          icon: 'Folder',
+          type: 'folder',
+          folderApps: selectedApps
+        };
+        
+        const nextApps = [...remainingApps, folder];
+        set({ apps: nextApps });
+        
+        try {
+          await fetch('/api/apps', {
+            method: 'PUT',
+            body: JSON.stringify(nextApps),
+          });
+        } catch (error) {
+          console.error('Failed to sync folder creation:', error);
+        }
+      },
+
+      addAppToFolder: async (folderId, appId) => {
+        const apps = get().apps;
+        const appToMove = apps.find(a => a.id === appId);
+        if (!appToMove) return;
+
+        const nextApps = apps.map(app => {
+          if (app.id === folderId && app.type === 'folder') {
+            return {
+              ...app,
+              folderApps: [...(app.folderApps || []), appToMove]
+            };
+          }
+          return app;
+        }).filter(a => a.id !== appId);
+
+        set({ apps: nextApps });
+        
+        try {
+          await fetch('/api/apps', {
+            method: 'PUT',
+            body: JSON.stringify(nextApps),
+          });
+        } catch (error) {
+          console.error('Failed to sync app move to folder:', error);
+        }
+      },
+
+      removeAppFromFolder: async (folderId, appId) => {
+        const apps = get().apps;
+        let appToRestore: AppConfig | undefined;
+
+        const nextApps = apps.map(app => {
+          if (app.id === folderId && app.type === 'folder') {
+            appToRestore = app.folderApps?.find(a => a.id === appId);
+            return {
+              ...app,
+              folderApps: app.folderApps?.filter(a => a.id !== appId) || []
+            };
+          }
+          return app;
+        });
+
+        if (appToRestore) {
+          nextApps.push(appToRestore);
+        }
+
+        set({ apps: nextApps });
+        
+        try {
+          await fetch('/api/apps', {
+            method: 'PUT',
+            body: JSON.stringify(nextApps),
+          });
+        } catch (error) {
+          console.error('Failed to sync app removal from folder:', error);
+        }
+      },
  
       setSettingsOpen: (isOpen, section) => set({ isSettingsOpen: isOpen, settingsSection: section || null }),
       setWallpaperPickerOpen: (isOpen) => set({ isWallpaperPickerOpen: isOpen }),
       setAppPickerOpen: (isOpen) => set({ isAppPickerOpen: isOpen }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
-      toggleWidgets: () => set((state) => ({ showWidgets: !state.showWidgets })),
+      toggleNotes: () => set((state) => ({ showNotes: !state.showNotes })),
+      toggleWeather: () => set((state) => ({ showWeather: !state.showWeather })),
+      toggleTimer: () => set((state) => ({ showTimer: !state.showTimer })),
+      toggleClock: () => set((state) => ({ showClock: !state.showClock })),
       setNotes: (notes) => {
         set({ notes });
         
@@ -242,6 +391,49 @@ export const useSystemStore = create<SystemState>()(
       setDockPosition: (pos) => set({ dockPosition: pos }),
       setDockSize: (size) => set({ dockSize: size }),
       setActiveApp: (id) => set({ activeApp: id }),
+      setDashboardOpen: (isOpen) => set({ 
+        isDashboardOpen: isOpen,
+        isWallpaperPickerOpen: false,
+        isAppPickerOpen: false
+      }),
+      setFocusOverlayOpen: (isOpen) => set({ isFocusOverlayOpen: isOpen }),
+      setPomodoroSettings: async (settings) => {
+        const newSettings = { ...get().pomodoroSettings, ...settings };
+        set({ pomodoroSettings: newSettings });
+        
+        // Update time left if we change the setting for the current mode
+        const mode = get().pomodoroMode;
+        if (mode === 'work' && settings.work) set({ pomodoroTimeLeft: settings.work * 60 });
+        if (mode === 'shortBreak' && settings.shortBreak) set({ pomodoroTimeLeft: settings.shortBreak * 60 });
+        if (mode === 'longBreak' && settings.longBreak) set({ pomodoroTimeLeft: settings.longBreak * 60 });
+
+        try {
+          await fetch('/api/settings', {
+            method: 'PATCH',
+            body: JSON.stringify({ pomodoroSettings: newSettings }),
+          });
+        } catch (error) {
+          console.error('Failed to sync pomodoro settings:', error);
+        }
+      },
+      setPomodoroMode: (mode) => {
+        const settings = get().pomodoroSettings;
+        let time = settings.work * 60;
+        if (mode === 'shortBreak') time = settings.shortBreak * 60;
+        if (mode === 'longBreak') time = settings.longBreak * 60;
+        set({ pomodoroMode: mode, pomodoroTimeLeft: time, pomodoroIsRunning: false });
+      },
+      setPomodoroTimeLeft: (time) => set({ pomodoroTimeLeft: time }),
+      setPomodoroIsRunning: (isRunning) => set({ pomodoroIsRunning: isRunning }),
+      setPomodoroMinimized: (isMinimized) => set({ pomodoroIsMinimized: isMinimized }),
+      setWeatherCity: (city) => {
+        set({ weatherCity: city });
+        // Sync with API
+        fetch('/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ weatherCity: city }),
+        }).catch(err => console.error('Failed to sync city:', err));
+      },
       setContextMenu: (isOpen, x, y, items) => set({ 
         contextMenu: { 
           isOpen, 
@@ -250,6 +442,21 @@ export const useSystemStore = create<SystemState>()(
           items: items || [] 
         } 
       }),
+      setSpotifyActive: (active) => {
+        set({ isSpotifyActive: active });
+        fetch('/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ isSpotifyActive: active }),
+        }).catch(err => console.error('Failed to sync spotify active:', err));
+      },
+      setSpotifyPlaylistId: (id) => {
+        set({ spotifyPlaylistId: id });
+        fetch('/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ spotifyPlaylistId: id }),
+        }).catch(err => console.error('Failed to sync spotify id:', err));
+      },
+      setActiveFolderId: (id) => set({ activeFolderId: id }),
     }),
     {
       name: 'system-storage',
@@ -259,11 +466,17 @@ export const useSystemStore = create<SystemState>()(
         wallpaperHistory: state.wallpaperHistory,
         isSettingsOpen: state.isSettingsOpen,
         theme: state.theme,
-        showWidgets: state.showWidgets,
+        showNotes: state.showNotes,
+        showWeather: state.showWeather,
+        showTimer: state.showTimer,
+        showClock: state.showClock,
         notes: state.notes,
         dockPosition: state.dockPosition,
         dockSize: state.dockSize,
         activeApp: state.activeApp,
+        weatherCity: state.weatherCity,
+        isSpotifyActive: state.isSpotifyActive,
+        spotifyPlaylistId: state.spotifyPlaylistId,
       }),
     }
   )

@@ -12,11 +12,16 @@ import Spotlight from './ui/Spotlight';
 import ContextMenu from './ui/ContextMenu';
 import WallpaperPicker from './ui/WallpaperPicker';
 import AppPicker from './ui/AppPicker';
+import FocusTimer from './ui/FocusTimer';
+import Dashboard from './ui/Dashboard';
+import FocusOverlay from './ui/FocusOverlay';
+import SpotifyWidget from './ui/SpotifyWidget';
+import FolderPopover from './ui/FolderPopover';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { LogIn, Loader2, LogOut, Plus, Settings, StickyNote } from 'lucide-react';
+import { LogIn, Loader2, LogOut, Plus, Settings, StickyNote, Layout, ImageIcon, Sun, Moon, EyeOff, Eye, Github, PlusCircle, Layers } from 'lucide-react';
 
 export default function Desktop() {
   const { 
@@ -24,8 +29,13 @@ export default function Desktop() {
     isSettingsOpen, setSettingsOpen, 
     isWallpaperPickerOpen, setWallpaperPickerOpen, 
     isAppPickerOpen, setAppPickerOpen, 
+    isDashboardOpen, setDashboardOpen,
+    isFocusOverlayOpen, setFocusOverlayOpen,
     theme, toggleTheme,
-    showWidgets, toggleWidgets,
+    showNotes, toggleNotes,
+    showWeather, toggleWeather,
+    showTimer, toggleTimer,
+    showClock, toggleClock,
     activeApp, setActiveApp, fetchData, isLoading, setContextMenu 
   } = useSystemStore();
   const { data: session, status } = useSession();
@@ -270,32 +280,28 @@ export default function Desktop() {
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setContextMenu(true, e.clientX, e.clientY, [
+                    { label: "Personnaliser le bureau", icon: "Layout", action: () => setDashboardOpen(true) },
                     { 
                       label: "Fond d'écran", 
-                      icon: "Image", 
+                      icon: "ImageIcon", 
                       action: () => setWallpaperPickerOpen(true)
                     },
-                    { 
-                      label: theme === 'dark' ? "Mode Clair" : "Mode Sombre", 
-                      icon: theme === 'dark' ? "Sun" : "Moon", 
-                      action: () => toggleTheme() 
-                    },
-                    { 
-                      label: showWidgets ? "Masquer les widgets" : "Afficher les widgets", 
-                      icon: showWidgets ? "EyeOff" : "Eye", 
-                      action: () => toggleWidgets() 
-                    },
-                    { separator: true },
                     { 
                       label: "Ajouter une application", 
                       icon: "PlusCircle", 
                       action: () => setAppPickerOpen(true) 
                     },
-                    { label: "Préférences du Dock", icon: "Layers", action: () => setSettingsOpen(true, 'dock') },
+                    { separator: true },
+                    { 
+                      label: theme === 'dark' ? "Mode Clair" : "Mode Sombre", 
+                      icon: theme === 'dark' ? "Sun" : "Moon", 
+                      action: () => toggleTheme() 
+                    },
+
                     { 
                       label: "Inspecter le code", 
                       icon: "Github", 
-                      action: () => window.open('https://github.com', '_blank') 
+                      action: () => window.open('https://github.com/La-Tva/hub', '_blank') 
                     },
                     { separator: true },
                     { 
@@ -351,7 +357,7 @@ export default function Desktop() {
 
             {/* Desktop Widgets */}
             <AnimatePresence>
-              {showWidgets && (
+              {(showNotes || showWeather) && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -359,14 +365,16 @@ export default function Desktop() {
                   className="absolute inset-0 z-0 pointer-events-none"
                 >
                   <div className="absolute top-12 left-12 grid grid-cols-1 gap-6 pointer-events-auto">
-                    <WeatherWidget />
-                    <NotesWidget />
+                    {showWeather && <WeatherWidget />}
+                    {showNotes && <NotesWidget />}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <Clock />
+            <AnimatePresence>
+              {showClock && <Clock />}
+            </AnimatePresence>
             
             <AnimatePresence>
               {isWallpaperPickerOpen && <WallpaperPicker />}
@@ -374,6 +382,27 @@ export default function Desktop() {
 
             <AnimatePresence>
               {isAppPickerOpen && <AppPicker />}
+            </AnimatePresence>
+
+            {/* Focus Timer */}
+            <AnimatePresence>
+              {showTimer && <FocusTimer />}
+            </AnimatePresence>
+
+            {/* Dashboard Overlay */}
+            <AnimatePresence>
+              {isDashboardOpen && <Dashboard />}
+            </AnimatePresence>
+
+            {/* Spotify Player */}
+            <SpotifyWidget />
+
+            {/* Folder Popover */}
+            <FolderPopover />
+
+            {/* Focus Overlay */}
+            <AnimatePresence>
+              {isFocusOverlayOpen && <FocusOverlay />}
             </AnimatePresence>
 
             {/* Settings Modal */}
