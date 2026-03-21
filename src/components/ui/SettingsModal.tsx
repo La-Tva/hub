@@ -65,7 +65,7 @@ export default function SettingsModal() {
   const startEditing = (app: AppConfig) => {
     setEditingId(app.id);
     setEditName(app.name);
-    setEditUrl(app.url);
+    setEditUrl(app.url || '');
     setEditIcon(app.icon);
   };
 
