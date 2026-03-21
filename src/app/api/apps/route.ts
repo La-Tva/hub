@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     { new: true, upsert: true }
   );
 
-  if (process.env.PUSHER_APP_ID && session.user.name) {
+  if (pusherServer && session.user.name) {
     const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
     pusherServer.trigger(channelName, 'sync', { apps: user.apps }).catch(e => console.error('[Pusher] Error:', e));
   }
@@ -48,7 +48,7 @@ export async function DELETE(request: Request) {
     { new: true }
   );
 
-  if (process.env.PUSHER_APP_ID && session.user.name) {
+  if (pusherServer && session.user.name) {
     const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
     pusherServer.trigger(channelName, 'sync', { apps: user.apps }).catch(e => console.error('[Pusher] Error:', e));
   }
@@ -69,7 +69,7 @@ export async function PUT(request: Request) {
     { new: true }
   );
 
-  if (process.env.PUSHER_APP_ID && session.user.name) {
+  if (pusherServer && session.user.name) {
     const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
     pusherServer.trigger(channelName, 'sync', { apps: user.apps }).catch(e => console.error('[Pusher] Error:', e));
   }
