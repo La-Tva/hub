@@ -23,6 +23,9 @@ interface SystemState {
   showWeather: boolean;
   showTimer: boolean;
   showClock: boolean;
+  showCalculator: boolean;
+  showClipboard: boolean;
+  clipboardContent: string;
   notes: string;
   dockPosition: 'bottom' | 'top' | 'left' | 'right' | 'center';
   dockSize: 'small' | 'medium' | 'large';
@@ -44,9 +47,21 @@ interface SystemState {
   isSpotifyActive: boolean;
   spotifyPlaylistId: string;
   activeFolderId: string | null;
+  uploadStatus: 'idle' | 'uploading' | 'success' | 'error';
+  uploadResultUrl: string | null;
+  showDropZone: boolean;
+  isGhostModeActive: boolean;
+  isGhostModeLocked: boolean;
+  ghostModePIN: string | null;
+  calculatorSettings: {
+    precision: number;
+    soundEnabled: boolean;
+    showHistory: boolean;
+  };
   
   // Actions
   fetchData: () => Promise<void>;
+  saveSettings: (settings: Partial<SystemState>) => Promise<void>; // Added saveSettings action
   setWallpaper: (url: string) => Promise<void>;
   deleteWallpaperFromHistory: (url: string) => Promise<void>;
   addApp: (app: Omit<AppConfig, 'id'>) => Promise<void>;
@@ -56,6 +71,7 @@ interface SystemState {
   createFolder: (name: string, appIds: string[]) => Promise<void>;
   addAppToFolder: (folderId: string, appId: string) => Promise<void>;
   removeAppFromFolder: (folderId: string, appId: string) => Promise<void>;
+  renameFolder: (folderId: string, newName: string) => Promise<void>;
   setSettingsOpen: (isOpen: boolean, section?: string) => void;
   setWallpaperPickerOpen: (isOpen: boolean) => void;
   setAppPickerOpen: (isOpen: boolean) => void;
@@ -64,6 +80,9 @@ interface SystemState {
   toggleWeather: () => void;
   toggleTimer: () => void;
   toggleClock: () => void;
+  toggleCalculator: () => void;
+  toggleClipboard: () => void;
+  setClipboardContent: (content: string) => Promise<void>;
   setNotes: (notes: string) => void;
   setDockPosition: (pos: 'bottom' | 'top' | 'left' | 'right' | 'center') => void;
   setDockSize: (size: 'small' | 'medium' | 'large') => void;
@@ -79,6 +98,7 @@ interface SystemState {
   setSpotifyActive: (active: boolean) => void;
   setSpotifyPlaylistId: (id: string) => void;
   setActiveFolderId: (id: string | null) => void;
+  setCalculatorSettings: (settings: Partial<SystemState['calculatorSettings']>) => void;
   contextMenu: {
     isOpen: boolean;
     x: number;
@@ -86,6 +106,15 @@ interface SystemState {
     items: ContextMenuItem[];
   };
   setContextMenu: (isOpen: boolean, x?: number, y?: number, items?: ContextMenuItem[]) => void;
+  hideAllWidgets: () => void;
+  showAllWidgets: () => void;
+  setUploadStatus: (status: SystemState['uploadStatus']) => void;
+  setUploadResultUrl: (url: string | null) => void;
+  toggleDropZone: () => void;
+  applyRemoteUpdate: (data: Partial<SystemState>) => void;
+  setGhostModeActive: (active: boolean) => void;
+  setGhostModeLocked: (locked: boolean) => void;
+  setGhostModePIN: (pin: string | null) => Promise<void>;
 }
 
 export type ContextMenuItem = {
@@ -114,6 +143,12 @@ export const useSystemStore = create<SystemState>()(
       showWeather: true,
       showTimer: true,
       showClock: true,
+      showCalculator: false,
+      showClipboard: false,
+      clipboardContent: '',
+      isGhostModeActive: false,
+      isGhostModeLocked: false,
+      ghostModePIN: null,
       notes: '',
       dockPosition: 'bottom',
       dockSize: 'medium',
@@ -131,6 +166,14 @@ export const useSystemStore = create<SystemState>()(
       isSpotifyActive: false,
       spotifyPlaylistId: '0vvXsWCC9xrXsKd4FyS8kM',
       activeFolderId: null,
+      uploadStatus: 'idle',
+      uploadResultUrl: null,
+      showDropZone: true,
+      calculatorSettings: {
+        precision: 2,
+        soundEnabled: true,
+        showHistory: false
+      },
       contextMenu: {
         isOpen: false,
         x: 0,
@@ -138,8 +181,23 @@ export const useSystemStore = create<SystemState>()(
         items: [],
       },
 
+      // Generic function to save settings
+      saveSettings: async (settings) => {
+        try {
+          await fetch('/api/settings', {
+            method: 'PATCH',
+            body: JSON.stringify(settings),
+          });
+        } catch (error) {
+          console.error('Failed to sync settings:', error);
+        }
+      },
+
       fetchData: async () => {
-        set({ isLoading: true });
+        // Only show global loader on initial mount (blank apps)
+        const isInitialLoad = get().apps.length === 0;
+        if (isInitialLoad) set({ isLoading: true });
+        
         try {
           const [settingsRes, appsRes] = await Promise.all([
             fetch('/api/settings'),
@@ -160,6 +218,9 @@ export const useSystemStore = create<SystemState>()(
             }
             if (settings.isSpotifyActive !== undefined) set({ isSpotifyActive: settings.isSpotifyActive });
             if (settings.spotifyPlaylistId) set({ spotifyPlaylistId: settings.spotifyPlaylistId });
+            if (settings.calculatorSettings) set({ calculatorSettings: { ...get().calculatorSettings, ...settings.calculatorSettings } });
+            if (settings.clipboardContent !== undefined) set({ clipboardContent: settings.clipboardContent });
+            if (settings.showClipboard !== undefined) set({ showClipboard: settings.showClipboard });
           }
           if (appsRes.ok) {
             let savedApps = await appsRes.json();
@@ -169,6 +230,7 @@ export const useSystemStore = create<SystemState>()(
               if (app.isInternal) {
                 if (app.id === 'settings') return { ...app, name: 'Réglages' };
                 if (app.id === 'finder') return { ...app, name: 'Explorateur' };
+                if (app.id === 'calculator') return { ...app, name: 'Calculatrice' };
               }
               return app;
             });
@@ -180,7 +242,10 @@ export const useSystemStore = create<SystemState>()(
                 mergedApps.push(savedApp);
               }
             });
-            set({ apps: mergedApps });
+            
+            // Calculator is now purely a widget (requested to remove from dock)
+            const finalApps = mergedApps.filter(a => a.id !== 'calculator' && a.url !== 'calculator');
+            set({ apps: finalApps });
           }
         } catch (error) {
           console.error('Failed to fetch data:', error);
@@ -361,6 +426,27 @@ export const useSystemStore = create<SystemState>()(
           console.error('Failed to sync app removal from folder:', error);
         }
       },
+
+      renameFolder: async (folderId, newName) => {
+        const apps = get().apps;
+        const nextApps = apps.map(app => {
+          if (app.id === folderId && app.type === 'folder') {
+            return { ...app, name: newName };
+          }
+          return app;
+        });
+
+        set({ apps: nextApps });
+        
+        try {
+          await fetch('/api/apps', {
+            method: 'PUT',
+            body: JSON.stringify(nextApps),
+          });
+        } catch (error) {
+          console.error('Failed to sync folder rename:', error);
+        }
+      },
  
       setSettingsOpen: (isOpen, section) => set({ isSettingsOpen: isOpen, settingsSection: section || null }),
       setWallpaperPickerOpen: (isOpen) => set({ isWallpaperPickerOpen: isOpen }),
@@ -370,6 +456,45 @@ export const useSystemStore = create<SystemState>()(
       toggleWeather: () => set((state) => ({ showWeather: !state.showWeather })),
       toggleTimer: () => set((state) => ({ showTimer: !state.showTimer })),
       toggleClock: () => set((state) => ({ showClock: !state.showClock })),
+      toggleCalculator: () => {
+        const newState = !get().showCalculator;
+        set({ showCalculator: newState });
+        get().saveSettings({ showCalculator: newState });
+      },
+      toggleClipboard: () => {
+        const newState = !get().showClipboard;
+        set({ showClipboard: newState });
+        get().saveSettings({ showClipboard: newState });
+      },
+      toggleDropZone: () => {
+        const newState = !get().showDropZone;
+        set({ showDropZone: newState });
+        get().saveSettings({ showDropZone: newState });
+      },
+      setClipboardContent: async (content) => {
+        set({ clipboardContent: content });
+        await get().saveSettings({ clipboardContent: content });
+      },
+
+      hideAllWidgets: () => {
+        const update = {
+          showClock: false, showNotes: false, showWeather: false,
+          showTimer: false, showCalculator: false, showClipboard: false,
+          isSpotifyActive: false, showDropZone: false
+        };
+        set(update);
+        get().saveSettings(update);
+      },
+
+      showAllWidgets: () => {
+        const update = {
+          showClock: true, showNotes: true, showWeather: true,
+          showTimer: true, showCalculator: true, showClipboard: true,
+          isSpotifyActive: true, showDropZone: true
+        };
+        set(update);
+        get().saveSettings(update);
+      },
       setNotes: (notes) => {
         set({ notes });
         
@@ -457,6 +582,26 @@ export const useSystemStore = create<SystemState>()(
         }).catch(err => console.error('Failed to sync spotify id:', err));
       },
       setActiveFolderId: (id) => set({ activeFolderId: id }),
+      setCalculatorSettings: (settings) => {
+        const newSettings = { ...get().calculatorSettings, ...settings };
+        set({ calculatorSettings: newSettings });
+        fetch('/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ calculatorSettings: newSettings }),
+        }).catch(err => console.error('Failed to sync cal settings:', err));
+      },
+      setUploadStatus: (status) => set({ uploadStatus: status }),
+      setUploadResultUrl: (url) => set({ uploadResultUrl: url }),
+      applyRemoteUpdate: (data) => {
+        // Apply updates silently (no saveSettings call here)
+        set((state) => ({ ...state, ...data }));
+      },
+      setGhostModeActive: (active) => set({ isGhostModeActive: active }),
+      setGhostModeLocked: (locked) => set({ isGhostModeLocked: locked }),
+      setGhostModePIN: async (pin) => {
+        set({ ghostModePIN: pin });
+        await get().saveSettings({ ghostModePIN: pin });
+      },
     }),
     {
       name: 'system-storage',
@@ -470,6 +615,7 @@ export const useSystemStore = create<SystemState>()(
         showWeather: state.showWeather,
         showTimer: state.showTimer,
         showClock: state.showClock,
+        showCalculator: state.showCalculator,
         notes: state.notes,
         dockPosition: state.dockPosition,
         dockSize: state.dockSize,
@@ -477,6 +623,11 @@ export const useSystemStore = create<SystemState>()(
         weatherCity: state.weatherCity,
         isSpotifyActive: state.isSpotifyActive,
         spotifyPlaylistId: state.spotifyPlaylistId,
+        calculatorSettings: state.calculatorSettings,
+        showDropZone: state.showDropZone,
+        ghostModePIN: state.ghostModePIN,
+        isGhostModeActive: state.isGhostModeActive,
+        isGhostModeLocked: state.isGhostModeLocked,
       }),
     }
   )

@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from "@/lib/auth";
+import { pusherServer } from '@/lib/pusher';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -39,6 +40,8 @@ export async function PATCH(request: Request) {
   }
   if (body.isSpotifyActive !== undefined) updateData["settings.isSpotifyActive"] = body.isSpotifyActive;
   if (body.spotifyPlaylistId) updateData["settings.spotifyPlaylistId"] = body.spotifyPlaylistId;
+  if (body.clipboardContent !== undefined) updateData["settings.clipboardContent"] = body.clipboardContent;
+  if (body.showClipboard !== undefined) updateData["settings.showClipboard"] = body.showClipboard;
 
   const user = await User.findOneAndUpdate(
     { email: session.user.email },
@@ -48,6 +51,12 @@ export async function PATCH(request: Request) {
     },
     { new: true, upsert: true }
   );
+
+  // Trigger Pusher event for Handoff
+  if (pusherServer && session.user.name) {
+    const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
+    pusherServer.trigger(channelName, 'sync', body).catch(e => console.error('[Pusher] Error:', e));
+  }
 
   return NextResponse.json(user.settings);
 }

@@ -7,7 +7,8 @@ import {
   X, Image as ImageIcon, Plus, Layout, Settings, 
   Moon, Sun, Eye, EyeOff, Monitor, Github, 
   Check, Globe, Search, Timer, StickyNote,
-  ChevronRight, Apple, Minus, Maximize2, Loader2
+  ChevronRight, Apple, Minus, Maximize2, Loader2,
+  Calculator as CalcIcon, Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,11 +31,16 @@ export default function Dashboard() {
     showWeather, toggleWeather,
     showTimer, toggleTimer,
     showClock, toggleClock,
+    showCalculator, toggleCalculator,
+    showClipboard, toggleClipboard,
+    notes, setNotes,
     dockPosition, setDockPosition,
     dockSize, setDockSize,
     pomodoroSettings, setPomodoroSettings,
     isFocusOverlayOpen, setFocusOverlayOpen,
-    setSettingsOpen
+    setSettingsOpen,
+    setContextMenu, createFolder, addAppToFolder, renameFolder,
+    removeApp
   } = useSystemStore();
 
   const [activeTab, setActiveTab] = useState<'appearance' | 'apps' | 'system' | 'focus'>('appearance');
@@ -205,6 +211,8 @@ export default function Dashboard() {
                             { label: 'Notes', toggle: toggleNotes, active: showNotes, icon: StickyNote, color: 'orange' },
                             { label: 'Météo', toggle: toggleWeather, active: showWeather, icon: Sun, color: 'blue' },
                             { label: 'Timer', toggle: toggleTimer, active: showTimer, icon: Timer, color: 'red' },
+                            { label: 'Calculatrice', toggle: toggleCalculator, active: showCalculator, icon: CalcIcon, color: 'purple' },
+                            { label: 'Presse-papier', toggle: toggleClipboard, active: showClipboard, icon: Share2, color: 'blue' },
                           ].map((widget) => (
                             <button
                               key={widget.label}
@@ -246,6 +254,52 @@ export default function Dashboard() {
                       {apps.map((app, i) => (
                         <div
                           key={app.id}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            const otherFolders = apps.filter(f => f.type === 'folder' && f.id !== app.id);
+                            
+                            if (app.type === 'folder') {
+                              setContextMenu(true, e.clientX, e.clientY, [
+                                { 
+                                  label: "Renommer", 
+                                  icon: "Edit3", 
+                                  action: () => {
+                                    const newName = prompt("Nouveau nom du dossier :", app.name);
+                                    if (newName && newName !== app.name) {
+                                      renameFolder(app.id, newName);
+                                    }
+                                  } 
+                                },
+                                { separator: true },
+                                { label: "Supprimer", icon: "Trash", action: () => removeApp(app.id), danger: true },
+                              ]);
+                            } else {
+                              setContextMenu(true, e.clientX, e.clientY, [
+                                { 
+                                  label: "Ajouter à un groupe...", 
+                                  icon: "FolderPlus",
+                                  disabled: otherFolders.length === 0,
+                                  submenu: otherFolders.map(f => ({
+                                    label: f.name,
+                                    icon: "Folder",
+                                    action: () => addAppToFolder(f.id, app.id)
+                                  }))
+                                },
+                                { 
+                                  label: "Nouveau groupe...", 
+                                  icon: "PlusCircle", 
+                                  action: () => {
+                                    const name = prompt("Nom du groupe :");
+                                    if (name) createFolder(name, [app.id]);
+                                  }
+                                },
+                                { separator: true },
+                                { label: "Supprimer", icon: "Trash", action: () => removeApp(app.id), danger: true },
+                              ]);
+                            }
+                          }}
                           className="aspect-square rounded-[36px] bg-white/5 border border-white/5 p-8 flex flex-col items-center justify-between transition-all relative group hover:bg-white/10"
                         >
                           <div className="relative">
@@ -268,10 +322,7 @@ export default function Dashboard() {
                           </div>
                           
                           <button 
-                            onClick={() => {
-                              const { removeApp } = useSystemStore.getState();
-                              removeApp(app.id);
-                            }}
+                            onClick={() => removeApp(app.id)}
                             className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-xl z-20"
                           >
                             <X className="w-4 h-4" />

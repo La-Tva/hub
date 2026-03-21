@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from "@/lib/auth";
+import { pusherServer } from '@/lib/pusher';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -26,6 +27,11 @@ export async function POST(request: Request) {
     { new: true, upsert: true }
   );
 
+  if (process.env.PUSHER_APP_ID && session.user.name) {
+    const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
+    pusherServer.trigger(channelName, 'sync', { apps: user.apps }).catch(e => console.error('[Pusher] Error:', e));
+  }
+
   return NextResponse.json(user.apps);
 }
 
@@ -42,6 +48,11 @@ export async function DELETE(request: Request) {
     { new: true }
   );
 
+  if (process.env.PUSHER_APP_ID && session.user.name) {
+    const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
+    pusherServer.trigger(channelName, 'sync', { apps: user.apps }).catch(e => console.error('[Pusher] Error:', e));
+  }
+
   return NextResponse.json(user.apps);
 }
 
@@ -57,6 +68,11 @@ export async function PUT(request: Request) {
     { $set: { apps } },
     { new: true }
   );
+
+  if (process.env.PUSHER_APP_ID && session.user.name) {
+    const channelName = `user-${encodeURIComponent(session.user.name.toLowerCase())}`;
+    pusherServer.trigger(channelName, 'sync', { apps: user.apps }).catch(e => console.error('[Pusher] Error:', e));
+  }
 
   return NextResponse.json(user.apps);
 }

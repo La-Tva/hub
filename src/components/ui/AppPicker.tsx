@@ -38,7 +38,7 @@ export default function AppPicker() {
       name: suggestion.name,
       url: suggestion.url,
       icon: suggestion.icon,
-      isInternal: false
+      isInternal: (suggestion as any).isInternal || false
     };
 
     await addApp(newApp);

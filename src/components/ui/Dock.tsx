@@ -6,11 +6,21 @@ import { useSystemStore, AppConfig } from '@/store/useSystemStore';
 import Image from 'next/image';
 import { cn } from '../../lib/utils';
 
-function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConfig; mouseX: MotionValue<{ x: number; y: number }>; priority?: boolean; size: number; mag: number }) {
+function DockIcon({ 
+  app, mouseX, priority, size: baseSize, mag, position 
+}: { 
+  app: AppConfig; 
+  mouseX: MotionValue<{ x: number; y: number }>; 
+  priority?: boolean; 
+  size: number; 
+  mag: number;
+  position: 'bottom' | 'top' | 'left' | 'right' | 'center';
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const { 
     apps, setActiveApp, setSettingsOpen, setActiveFolderId, 
-    setContextMenu, createFolder, addAppToFolder, removeApp 
+    setContextMenu, createFolder, addAppToFolder, removeApp,
+    toggleCalculator
   } = useSystemStore();
 
   const distance = useTransform(mouseX, (val) => {
@@ -23,11 +33,18 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
     return Math.sqrt(Math.pow(val.x - center.x, 2) + Math.pow(val.y - center.y, 2));
   });
 
-  const sizeTransform = useTransform(distance, [0, 140], [baseSize * mag, baseSize]);
+  const sizeTransform = useTransform(distance, [0, 150], [baseSize * mag, baseSize]);
   const size = useSpring(sizeTransform, {
     mass: 0.1,
-    stiffness: 150,
-    damping: 15,
+    stiffness: 250,
+    damping: 20,
+  });
+
+  const [isHovered, setIsHovered] = React.useState(false);
+  const y = useSpring(isHovered ? -30 : 0, {
+    mass: 0.1,
+    stiffness: 250,
+    damping: 20,
   });
 
   const handleClick = () => {
@@ -41,6 +58,11 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
       return;
     }
     
+    if (app.id === 'calculator' || app.url === 'calculator') {
+      toggleCalculator();
+      return;
+    }
+
     if (app.isInternal) {
       setActiveApp(app.id);
     } else if (app.url) {
@@ -77,7 +99,7 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
         src={app.icon}
         alt={app.name}
         fill
-        className="object-contain p-1 transform-gpu transition-transform group-hover/icon:scale-110"
+        className="object-contain p-1 transform-gpu"
         unoptimized
         priority={priority}
         draggable={false}
@@ -88,19 +110,14 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
   return (
     <motion.div
       ref={ref}
-      style={{ width: size, height: size }}
-      className="relative flex items-center justify-center cursor-pointer group z-10"
-      onPointerDown={(e) => setActiveFolderId(null)} // Close folder if dragging starts
-      onClick={(e) => {
-        // Prevent click if we just dragged (Reorder handles this mostly, but good to be safe)
-        handleClick();
-      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onPointerDown={(e) => setActiveFolderId(null)}
+      onClick={handleClick}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        
         const folders = apps.filter(a => a.type === 'folder' && a.id !== app.id);
-        
         setContextMenu(true, e.clientX, e.clientY, [
           { 
             label: "Déplacer vers un dossier", 
@@ -127,25 +144,41 @@ function DockIcon({ app, mouseX, priority, size: baseSize, mag }: { app: AppConf
         ]);
       }}
       whileTap={{ scale: 0.9 }}
-      whileDrag={{ scale: 1.1, zIndex: 100 }}
+      style={{
+        width: size,
+        height: size,
+        y,
+        originY: 1, // Anchor to bottom for magnification
+      }}
+      className="relative flex items-center justify-center cursor-pointer group z-10"
     >
-      {/* Tooltip with Triangle Pointer (Beak) */}
-      <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none transform group-hover:-translate-y-1">
-        <div className="px-4 py-1.5 rounded-2xl bg-[#1a1a1a]/90 backdrop-blur-xl border border-white/10 text-[13px] font-medium text-white shadow-2xl whitespace-nowrap">
+      {/* Tooltip */}
+      <div className={cn(
+        "absolute opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform z-50",
+        position === 'bottom' || position === 'center' ? "-top-14 left-1/2 -translate-x-1/2 group-hover:-translate-y-2" :
+        position === 'top' ? "-bottom-14 left-1/2 -translate-x-1/2 group-hover:translate-y-2" :
+        position === 'left' ? "left-full ml-4 top-1/2 -translate-y-1/2 group-hover:translate-x-2" :
+        position === 'right' ? "right-full mr-4 top-1/2 -translate-y-1/2 group-hover:-translate-x-2" : ""
+      )}>
+        <div className="px-3 py-1 rounded-lg bg-black/90 backdrop-blur-xl border border-white/10 text-[12px] font-medium text-white shadow-3xl">
           {app.name}
         </div>
-        <div className="w-2.5 h-2.5 bg-[#1a1a1a]/90 border-r border-b border-white/10 rotate-45 -mt-1.5 backdrop-blur-xl" />
       </div>
 
-      <div className="relative w-full h-full p-1 drop-shadow-2xl">
-        <div className="w-full h-full rounded-[23%] bg-gradient-to-b from-white/10 to-transparent p-[1px] shadow-2xl transition-all group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
-          <div className="w-full h-full rounded-[22%] bg-[#121212] overflow-hidden relative group/icon">
-            {renderIcon()}
-            {/* Glossy Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/20 opacity-60 pointer-events-none" />
-          </div>
+      <div className="relative w-full h-full p-0.5">
+        <div className="w-full h-full rounded-[24%] overflow-hidden relative shadow-2xl bg-black/20">
+          {renderIcon()}
         </div>
       </div>
+
+      {/* Active Indicator (Dot) */}
+      {(app.isInternal || app.id === 'spotify') && (
+        <motion.div 
+          className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_white]"
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+        />
+      )}
     </motion.div>
   );
 }
@@ -184,9 +217,9 @@ export default function Dock() {
 
   const getMagnification = () => {
     switch (dockSize) {
-      case 'small': return 1.8;
-      case 'large': return 2.6;
-      default: return 2.2;
+      case 'small': return 1.6;
+      case 'large': return 2.8;
+      default: return 2.4;
     }
   };
 
@@ -260,13 +293,19 @@ export default function Dock() {
           style={{
             height: isVertical ? 'auto' : baseSize + 24,
             width: isVertical ? baseSize + 24 : 'auto',
-            padding: '12px',
+            padding: isVertical ? '12px 6px' : '6px 12px',
           }}
           className={cn(
-            "relative flex items-center gap-3 rounded-[32px] border border-white/10 shadow-[0_25px_60px_-10px_rgba(0,0,0,0.6)] glass-dark transition-all duration-500",
-            isVertical ? "flex-col py-6" : "flex-row px-6"
+            "relative flex items-end justify-center gap-2 transition-all duration-500",
+            isVertical ? "flex-col" : "flex-row"
           )}
         >
+          {/* Glass Shelf Background */}
+          <div className={cn(
+            "absolute inset-0 -z-10 bg-[#161616]/60 backdrop-blur-3xl border border-white/5 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)]",
+            isVertical ? "rounded-3xl" : "rounded-[32px]"
+          )} />
+          
           {/* Top reflective edge - only for horizontal */}
           {!isVertical && (
             <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
@@ -277,7 +316,7 @@ export default function Dock() {
             axis={isVertical ? "y" : "x"} 
             values={apps} 
             onReorder={reorderApps}
-            className={cn("flex gap-2.5 relative items-center", isVertical ? "flex-col" : "flex-row")}
+            className={cn("flex gap-2 relative items-end", isVertical ? "flex-col pb-2" : "flex-row pb-1.5")}
           >
             {apps.map((app, index) => (
               <Reorder.Item
@@ -289,9 +328,9 @@ export default function Dock() {
                 <DockIcon 
                   app={app} 
                   mouseX={mouseX} 
-                  priority={index < 4} 
-                  size={baseSize}
+                  priority={index < 4}                  size={baseSize}
                   mag={mag}
+                  position={dockPosition}
                 />
               </Reorder.Item>
             ))}

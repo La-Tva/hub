@@ -25,14 +25,7 @@ export const authOptions: NextAuthOptions = {
         let user = await User.findOne({ email });
         
         if (!user) {
-          const hashedPassword = await bcrypt.hash(credentials.password, 10);
-          user = await User.create({
-            name: credentials.username,
-            email,
-            password: hashedPassword,
-            settings: { theme: 'dark' },
-            apps: []
-          });
+          return null; // Return null if user does not exist (registration disabled)
         } else {
           if (user.password) {
             const isValid = await bcrypt.compare(credentials.password, user.password);

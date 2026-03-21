@@ -17,6 +17,13 @@ import Dashboard from './ui/Dashboard';
 import FocusOverlay from './ui/FocusOverlay';
 import SpotifyWidget from './ui/SpotifyWidget';
 import FolderPopover from './ui/FolderPopover';
+import Calculator from './ui/Calculator';
+import ClipboardWidget from './ui/ClipboardWidget';
+import WidgetDock from './ui/WidgetDock';
+import DropZone from './ui/DropZone';
+import UploadResultOverlay from './ui/UploadResultOverlay';
+import HandoffManager from './HandoffManager';
+import GhostModeOverlay from './ui/GhostModeOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -36,7 +43,10 @@ export default function Desktop() {
     showWeather, toggleWeather,
     showTimer, toggleTimer,
     showClock, toggleClock,
-    activeApp, setActiveApp, fetchData, isLoading, setContextMenu 
+    showCalculator, toggleCalculator,
+    showClipboard, toggleClipboard,
+    isGhostModeActive, setGhostModeActive, setGhostModeLocked,
+    activeApp, setActiveApp, fetchData, isLoading, apps, setContextMenu 
   } = useSystemStore();
   const { data: session, status } = useSession();
   
@@ -47,6 +57,7 @@ export default function Desktop() {
   const [authorizedUsers, setAuthorizedUsers] = React.useState<string[]>([]);
   const [selectedUser, setSelectedUser] = React.useState<string | null>(null);
   const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
 
   React.useEffect(() => {
     if (theme === 'light') {
@@ -85,15 +96,28 @@ export default function Desktop() {
     }
   }, [status, fetchData, session]);
 
-  // Handle navigation/popstate fix
   React.useEffect(() => {
-    const handleNavigation = () => {
-      // Re-trigger data fetch or store sync if needed on browser navigation
-      if (status === 'authenticated') fetchData();
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault(); e.stopPropagation();
+      if (e.dataTransfer?.types.includes('Files')) setIsDragging(true);
     };
-    window.addEventListener('popstate', handleNavigation);
-    return () => window.removeEventListener('popstate', handleNavigation);
-  }, [status, fetchData]);
+    window.addEventListener('dragenter', handleDragEnter);
+    return () => window.removeEventListener('dragenter', handleDragEnter);
+  }, []);
+
+  // Ghost Mode Keyboard Shortcut (Cmd+J / Ctrl+J)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        setGhostModeActive(true);
+        setGhostModeLocked(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setGhostModeActive, setGhostModeLocked]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +138,7 @@ export default function Desktop() {
     setIsLoggingIn(false);
   };
 
-  if (status === 'loading' || isLoading) {
+  if (status === 'loading' || (isLoading && apps.length === 0)) {
     return (
       <div className="h-screen w-screen bg-black flex items-center justify-center">
         <motion.div 
@@ -126,6 +150,7 @@ export default function Desktop() {
       </div>
     );
   }
+
 
   return (
     <main className={cn(
@@ -186,17 +211,6 @@ export default function Desktop() {
                           <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest group-hover:text-white/60 transition-colors">{user}</span>
                         </motion.button>
                       ))}
-                      
-                      <motion.button
-                        whileHover={{ y: -4 }}
-                        onClick={() => setShowNameInput(true)}
-                        className="flex flex-col items-center gap-4 group"
-                      >
-                        <div className="w-20 h-20 rounded-full bg-white/5 border border-dashed border-white/10 flex items-center justify-center p-0.5 shadow-xl transition-all group-hover:border-white/20">
-                          <Plus className="w-6 h-6 text-white/20" />
-                        </div>
-                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest group-hover:text-white/40">Nouveau</span>
-                      </motion.button>
                     </div>
                   </div>
                 ) : (
@@ -319,7 +333,7 @@ export default function Desktop() {
               className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000 scale-[1.02]"
               style={{ 
                 backgroundImage: `url(${wallpaper})`,
-                filter: (isSettingsOpen || activeApp) ? 'brightness(0.8)' : 'brightness(1)'
+                filter: isGhostModeActive ? 'blur(100px) brightness(0.5)' : (isSettingsOpen || activeApp) ? 'brightness(0.8)' : 'brightness(1)'
               }}
             />
             
@@ -347,7 +361,10 @@ export default function Desktop() {
             </div>
 
             {/* Dock */}
-            <Dock />
+            {!isGhostModeActive && <Dock />}
+            
+            {/* Widget Toggles Dock */}
+            {!isGhostModeActive && <WidgetDock />}
 
             {/* Spotlight Search */}
             <Spotlight />
@@ -357,7 +374,7 @@ export default function Desktop() {
 
             {/* Desktop Widgets */}
             <AnimatePresence>
-              {(showNotes || showWeather) && (
+              {(showNotes || showWeather || showCalculator || showClipboard) && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -367,6 +384,29 @@ export default function Desktop() {
                   <div className="absolute top-12 left-12 grid grid-cols-1 gap-6 pointer-events-auto">
                     {showWeather && <WeatherWidget />}
                     {showNotes && <NotesWidget />}
+                    {showCalculator && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="w-fit"
+                      >
+                        <Calculator />
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Top Center Widgets (Clipboard) - Above the Clock */}
+                  <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+                    {showClipboard && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                      >
+                        <ClipboardWidget />
+                      </motion.div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -459,6 +499,10 @@ export default function Desktop() {
           </motion.div>
         )}
       </AnimatePresence>
+      <DropZone isDragging={isDragging} onClose={() => setIsDragging(false)} />
+      <UploadResultOverlay />
+      <HandoffManager />
+      <GhostModeOverlay />
     </main>
   );
 }

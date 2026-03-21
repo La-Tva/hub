@@ -7,7 +7,10 @@ import Image from 'next/image';
 import { X } from 'lucide-react';
 
 export default function FolderPopover() {
-  const { apps, activeFolderId, setActiveFolderId, setActiveApp } = useSystemStore();
+  const { 
+    apps, activeFolderId, setActiveFolderId, setActiveApp, 
+    setContextMenu, removeAppFromFolder, addAppToFolder 
+  } = useSystemStore();
 
   const activeFolder = apps.find(app => app.id === activeFolderId && app.type === 'folder');
 
@@ -63,8 +66,46 @@ export default function FolderPopover() {
                   initial={{ opacity: 0, scale: 0.8, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="flex flex-col items-center gap-3 cursor-pointer group"
+                  className="flex flex-col items-center gap-3 cursor-pointer group relative"
                   onClick={() => handleAppLaunch(app)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const otherFolders = apps.filter(f => f.type === 'folder' && f.id !== activeFolder.id);
+                    
+                    setContextMenu(true, e.clientX, e.clientY, [
+                      { 
+                        label: "Ouvrir", 
+                        icon: "Maximize2", 
+                        action: () => handleAppLaunch(app) 
+                      },
+                      { separator: true },
+                      { 
+                        label: "Sortir du dossier", 
+                        icon: "LogOut", 
+                        action: () => {
+                          removeAppFromFolder(activeFolder.id, app.id);
+                        }
+                      },
+                      {
+                        label: "Déplacer vers...",
+                        icon: "FolderPlus",
+                        disabled: otherFolders.length === 0,
+                        submenu: otherFolders.map(f => ({
+                          label: f.name,
+                          icon: "Folder",
+                          action: () => {
+                            // First remove from current, then add to new
+                            removeAppFromFolder(activeFolder.id, app.id);
+                            // We need to wait for state to update or use a specialized action
+                            // But for now, let's use the simple way
+                            setTimeout(() => addAppToFolder(f.id, app.id), 100);
+                          }
+                        }))
+                      }
+                    ]);
+                  }}
                 >
                   <div className="relative w-20 h-20 rounded-[22%] bg-[#121212] flex items-center justify-center border border-white/5 shadow-2xl transition-all group-hover:scale-110 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden">
                     <Image
@@ -76,7 +117,7 @@ export default function FolderPopover() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-tr from-white/5 via-transparent to-white/10 opacity-60 pointer-events-none" />
                   </div>
-                  <span className="text-[13px] font-medium text-white/60 group-hover:text-white transition-colors text-center w-full truncate">
+                  <span className="text-[13px] font-medium text-white/60 group-hover:text-white transition-colors text-center w-full truncate px-1">
                     {app.name}
                   </span>
                 </motion.div>

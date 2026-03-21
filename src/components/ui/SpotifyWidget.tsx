@@ -22,10 +22,9 @@ export default function SpotifyWidget() {
 
   const renderContent = () => (
     <motion.div 
-      layout
       className={cn(
-        "relative w-[380px] h-[160px] rounded-[32px] overflow-hidden group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-all",
-        isFocusOverlayOpen ? "bg-transparent border-none shadow-none w-[420px] h-[520px]" : "border border-white/10 bg-black/40 backdrop-blur-2xl"
+        "relative w-[420px] h-[520px] rounded-[32px] overflow-hidden group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-all",
+        isFocusOverlayOpen ? "bg-transparent border-none shadow-none" : "border border-white/10 bg-black/40 backdrop-blur-2xl"
       )}
     >
       {/* Header - Only on Desktop */}
@@ -46,7 +45,6 @@ export default function SpotifyWidget() {
         height="100%" 
         frameBorder="0" 
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-        loading="lazy"
         className={cn(
           "transition-opacity duration-700",
           isFocusOverlayOpen ? "opacity-100" : "opacity-80 group-hover:opacity-100"
@@ -55,34 +53,35 @@ export default function SpotifyWidget() {
     </motion.div>
   );
 
-  if (isFocusOverlayOpen) {
-    return (
-      <div className="fixed inset-0 z-[400] flex items-center justify-center p-12 pointer-events-none">
-        <div className="w-full max-w-7xl grid grid-cols-12 gap-16 h-full items-center">
-          <div className="col-start-10 col-span-3 space-y-8 flex flex-col items-center pointer-events-none">
-             {/* Ghost Header for perfect vertical spacing match */}
-             <div className="flex items-center gap-3 w-[420px] opacity-0 invisible">
-               <Music4 className="w-5 h-5 text-purple-400" />
-               <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/20">Spotify Focus</h3>
-             </div>
+  return (
+    <div className={cn("fixed inset-0 pointer-events-none", isFocusOverlayOpen ? "z-[400]" : "z-[10]")}>
+      {/* Container that spans the whole screen when focus is on, or stays small when not */}
+      <div 
+        className={cn(
+          "absolute transition-none",
+          isFocusOverlayOpen 
+            ? "inset-0 grid grid-cols-12 gap-16 items-center px-12" 
+            : "bottom-8 right-8 w-[420px] h-[520px]"
+        )}
+      >
+        <div className={cn(
+          "relative pointer-events-auto",
+          isFocusOverlayOpen ? "col-start-10 col-span-3 flex flex-col items-center" : "w-full h-full"
+        )}>
+           <div className="flex flex-col items-center w-[420px]">
+             {isFocusOverlayOpen && (
+               <div className="flex items-center gap-3 w-full mb-4">
+                  <Music4 className="w-5 h-5 text-purple-400" />
+                  <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/20">Spotify Focus</h3>
+               </div>
+             )}
              
-             <div className="pointer-events-auto">
+             <div className="w-full h-full">
                {renderContent()}
              </div>
-          </div>
+           </div>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <motion.div
-      layout
-      transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-      style={{ zIndex: 30 }}
-      className="fixed bottom-32 right-12 pointer-events-auto"
-    >
-      {renderContent()}
-    </motion.div>
+    </div>
   );
 }

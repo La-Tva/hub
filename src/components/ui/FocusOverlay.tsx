@@ -195,14 +195,10 @@ export default function FocusOverlay() {
         </div>
 
         {/* Right: Spotify Focus */}
-        <div className="col-span-3 space-y-8 animate-in slide-in-from-right-8 duration-700 h-full flex flex-col items-center">
-           <div className="flex items-center gap-3 w-[420px]">
-             <Music4 className="w-5 h-5 text-purple-400" />
-             <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/20">Spotify Focus</h3>
-           </div>
+        <div className="col-start-10 col-span-3 space-y-8 animate-in slide-in-from-right-8 duration-700 h-full flex flex-col items-center justify-center">
            
            {/* This container acts as the visual home for the floating SpotifyWidget */}
-           <div className="w-[420px] h-[520px] rounded-[32px] border border-dashed border-white/5 bg-white/[0.01] flex flex-col items-center justify-center relative group">
+           <div className="w-[420px] h-[520px] relative">
              {!isSpotifyActive && (
                <div className="flex flex-col items-center p-8 text-center">
                  <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-all duration-500 shadow-[0_0_30px_rgba(168,85,247,0.1)]">
@@ -219,7 +215,6 @@ export default function FocusOverlay() {
                </div>
              )}
              
-             {/* The global SpotifyWidget will now float on top of this container in Focus Mode */}
              {isSpotifyActive && (
                <div className="flex flex-col items-center opacity-0">
                  {/* Hidden but keeps layout consistent */}

@@ -21,6 +21,8 @@
     "mongoose": "8.9.2",
     "next": "15.1.11",
     "next-auth": "4.24.13",
+    "pusher": "^5.3.3",
+    "pusher-js": "^8.4.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "tailwind-merge": "3.5.0",

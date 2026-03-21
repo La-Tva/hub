@@ -38,6 +38,8 @@ const UserSchema = new Schema({
     },
     isSpotifyActive: { type: Boolean, default: false },
     spotifyPlaylistId: { type: String, default: '0vvXsWCC9xrXsKd4FyS8kM' },
+    clipboardContent: { type: String, default: '' },
+    showClipboard: { type: Boolean, default: false },
   },
   apps: { type: [AppSchema], default: [] },
   widgets: { type: [WidgetSchema], default: [] },

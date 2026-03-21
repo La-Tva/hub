@@ -2,20 +2,29 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSystemStore, AppConfig } from '@/store/useSystemStore';
-import { Plus, Trash2, X, Globe, Link as LinkIcon, Image as ImageIcon, LogOut, Settings, GripVertical } from 'lucide-react';
+import { Plus, Trash2, X, Globe, Link as LinkIcon, Image as ImageIcon, LogOut, Settings, GripVertical, Calculator as CalcIcon } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { motion, Reorder } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 export default function SettingsModal() {
-  const { wallpaper, setWallpaper, wallpaperHistory, deleteWallpaperFromHistory, apps, addApp, removeApp, reorderApps, setSettingsOpen, settingsSection } = useSystemStore();
+  const { 
+    wallpaper, setWallpaper, wallpaperHistory, deleteWallpaperFromHistory, 
+    apps, addApp, removeApp, reorderApps, setSettingsOpen, settingsSection,
+    calculatorSettings, setCalculatorSettings
+  } = useSystemStore();
   
   const wallpaperRef = useRef<HTMLDivElement>(null);
   const appsRef = useRef<HTMLDivElement>(null);
+  const calculatorRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (settingsSection) {
-      const target = settingsSection === 'wallpaper' ? wallpaperRef.current : appsRef.current;
+      const target = 
+        settingsSection === 'wallpaper' ? wallpaperRef.current : 
+        settingsSection === 'apps' ? appsRef.current :
+        settingsSection === 'calculator' ? calculatorRef.current : null;
       if (target) {
         setTimeout(() => {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -328,6 +337,54 @@ export default function SettingsModal() {
               </Reorder.Item>
             ))}
           </Reorder.Group>
+        </div>
+
+        {/* Calculator Section */}
+        <div ref={calculatorRef} className="bg-black/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-400">
+              <CalcIcon className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-semibold text-white/90 uppercase tracking-widest text-[10px]">Paramètres Calculatrice</span>
+          </div>
+
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-white">Effets Sonores</p>
+                <p className="text-[10px] text-white/30 uppercase tracking-tight">Clic audible lors des touches</p>
+              </div>
+              <button 
+                onClick={() => setCalculatorSettings({ soundEnabled: !calculatorSettings.soundEnabled })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-all relative p-1",
+                  calculatorSettings.soundEnabled ? "bg-orange-500" : "bg-white/10"
+                )}
+              >
+                <div className={cn(
+                  "w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                  calculatorSettings.soundEnabled ? "translate-x-6" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <p className="text-sm font-bold text-white">Précision Décimale</p>
+                <span className="text-lg font-bold text-orange-500">{calculatorSettings.precision}</span>
+              </div>
+              <input 
+                type="range" min="0" max="8" step="1" 
+                value={calculatorSettings.precision} 
+                onChange={(e) => setCalculatorSettings({ precision: parseInt(e.target.value) })}
+                className="w-full appearance-none bg-white/5 h-2 rounded-full accent-orange-500 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-white/20 uppercase tracking-widest px-1">
+                <span>Entier</span>
+                <span>Scientifique</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Danger Zone / Session */}
