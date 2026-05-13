@@ -26,25 +26,14 @@ export default function MobileHome() {
     showClipboard, toggleClipboard,
     isSpotifyActive, setSpotifyActive,
     showDropZone, toggleDropZone,
-    setSettingsOpen
+    launchApp
   } = useSystemStore();
 
   if (!isMobileHomeOpen) return null;
 
   const handleAppClick = (app: AppConfig) => {
-    if (app.id === 'settings') {
-      setSettingsOpen(true);
-      setMobileHomeOpen(false);
-    } else if (app.id === 'calculator' || app.url === 'calculator') {
-      toggleCalculator();
-      setMobileHomeOpen(false);
-    } else if (app.isInternal) {
-      setActiveApp(app.id);
-      setMobileHomeOpen(false);
-    } else if (app.url) {
-      const url = app.url.startsWith('http') ? app.url : `https://${app.url}`;
-      window.open(url, '_blank');
-    }
+    launchApp(app);
+    setMobileHomeOpen(false);
   };
 
   const widgetToggles = [

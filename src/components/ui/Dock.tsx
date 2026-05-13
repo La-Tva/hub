@@ -18,9 +18,10 @@ function DockIcon({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { 
-    apps, setActiveApp, setSettingsOpen, setActiveFolderId, 
+    apps, setActiveFolderId, 
     setContextMenu, createFolder, addAppToFolder, removeApp,
-    toggleCalculator
+    launchApp, activeApp,
+    showClock, showNotes, showWeather, showCalculator
   } = useSystemStore();
 
   const distance = useTransform(mouseX, (val) => {
@@ -53,22 +54,7 @@ function DockIcon({
       return;
     }
 
-    if (app.id === 'settings') {
-      setSettingsOpen(true);
-      return;
-    }
-    
-    if (app.id === 'calculator' || app.url === 'calculator') {
-      toggleCalculator();
-      return;
-    }
-
-    if (app.isInternal) {
-      setActiveApp(app.id);
-    } else if (app.url) {
-      const url = app.url.startsWith('http') ? app.url : `https://${app.url}`;
-      window.open(url, '_blank');
-    }
+    launchApp(app);
   };
 
   const renderIcon = () => {
@@ -173,7 +159,11 @@ function DockIcon({
       </div>
 
       {/* Active Indicator (Dot) */}
-      {(app.isInternal || app.id === 'spotify') && (
+      {(activeApp === app.id || 
+        (app.id === 'clock' && showClock) ||
+        (app.id === 'notes' && showNotes) ||
+        (app.id === 'weather' && showWeather) ||
+        (app.id === 'calculator' && showCalculator)) && (
         <motion.div 
           className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_white]"
           initial={{ opacity: 0, scale: 0 }}

@@ -117,6 +117,7 @@ interface SystemState {
   setGhostModeLocked: (locked: boolean) => void;
   setGhostModePIN: (pin: string | null) => Promise<void>;
   setMobileHomeOpen: (isOpen: boolean) => void;
+  launchApp: (app: AppConfig) => void;
 }
 
 export type ContextMenuItem = {
@@ -606,6 +607,39 @@ export const useSystemStore = create<SystemState>()(
         await get().saveSettings({ ghostModePIN: pin });
       },
       setMobileHomeOpen: (isOpen) => set({ isMobileHomeOpen: isOpen }),
+      launchApp: (app) => {
+        if (app.id === 'settings') {
+          get().setSettingsOpen(true);
+          return;
+        }
+        if (app.id === 'calculator' || app.url === 'calculator') {
+          get().toggleCalculator();
+          return;
+        }
+        if (app.id === 'clock') {
+          get().toggleClock();
+          return;
+        }
+        if (app.id === 'notes') {
+          get().toggleNotes();
+          return;
+        }
+        if (app.id === 'weather') {
+          get().toggleWeather();
+          return;
+        }
+        if (app.id === 'finder') {
+          get().setActiveApp('finder');
+          return;
+        }
+
+        if (app.isInternal) {
+          get().setActiveApp(app.id);
+        } else if (app.url) {
+          // Open in internal window
+          get().setActiveApp(app.id);
+        }
+      },
     }),
     {
       name: 'system-storage',

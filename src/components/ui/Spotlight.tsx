@@ -17,7 +17,7 @@ export default function Spotlight() {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { apps, setActiveApp, setSettingsOpen, toggleCalculator } = useSystemStore();
+  const { apps, launchApp } = useSystemStore();
   const isMobile = useIsMobile();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -55,6 +55,16 @@ export default function Spotlight() {
   const appsToDisplay = search === '' ? apps.slice(0, 5) : filteredApps;
   appsToDisplay.forEach(app => results.push({ type: 'app', data: app }));
 
+  // Special handling for system apps not in the dock list
+  if (search.trim() !== '' && (search.toLowerCase().includes('calc') || 'calculatrice'.includes(search.toLowerCase()))) {
+     if (!results.some(r => r.type === 'app' && r.data.id === 'calculator')) {
+        results.push({ 
+           type: 'app', 
+           data: { id: 'calculator', name: 'Calculatrice', icon: 'https://www.google.com/s2/favicons?sz=128&domain=google.com', isInternal: true } 
+        });
+     }
+  }
+
   // Add Google result if there is search
   if (search.trim() !== '' && !isMath) {
     results.push({ type: 'google', query: search });
@@ -88,20 +98,9 @@ export default function Spotlight() {
 
   const handleLaunch = (result: SpotlightResult) => {
     if (result.type === 'app') {
-      const app = result.data;
-      if (app.id === 'settings') {
-        setSettingsOpen(true);
-      } else if (app.id === 'calculator' || app.url === 'calculator') {
-        toggleCalculator();
-      } else if (app.isInternal) {
-        setActiveApp(app.id);
-      } else if (app.url) {
-        const url = app.url.startsWith('http') ? app.url : `https://${app.url}`;
-        window.open(url, '_blank');
-      }
+      launchApp(result.data);
     } else if (result.type === 'calculator') {
       navigator.clipboard.writeText(result.result);
-      // Maybe show a toast or something, but for now just close
     } else if (result.type === 'google') {
       window.open(`https://www.google.com/search?q=${encodeURIComponent(result.query)}`, '_blank');
     }

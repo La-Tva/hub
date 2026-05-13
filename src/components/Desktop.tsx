@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import MobileNav from './ui/MobileNav';
 import MobileHome from './ui/MobileHome';
+import Window from './ui/Window';
 
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { LogIn, Loader2, LogOut, Plus, Settings, StickyNote, Layout, ImageIcon, Sun, Moon, EyeOff, Eye, Github, PlusCircle, Layers, X } from 'lucide-react';
@@ -513,47 +514,15 @@ export default function Desktop() {
               )}
             </AnimatePresence>
 
-            {/* Internal App Modals (Finder) */}
+            {/* Application Windows */}
             <AnimatePresence>
-              {activeApp === 'finder' && (
-                <motion.div
-                  initial={isMobile ? { x: '100%' } : { opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-                  exit={isMobile ? { x: '100%' } : { opacity: 0, scale: 0.9, y: 20 }}
-                  className={cn(
-                    "fixed inset-0 z-[90] flex items-center justify-center pointer-events-none",
-                    isMobile ? "p-0" : "p-12"
-                  )}
+              {activeApp && (
+                <Window 
+                  app={apps.find(a => a.id === activeApp) || { id: activeApp, name: activeApp, icon: '', isInternal: true }} 
+                  onClose={() => setActiveApp(null)}
                 >
-                  <div className={cn(
-                    "glass-dark relative overflow-hidden pointer-events-auto border border-white/10 shadow-2xl",
-                    isMobile ? "w-full h-full rounded-none pt-16" : "w-full max-w-4xl h-[600px] rounded-3xl"
-                  )}>
-                    <div className={cn(
-                      "absolute z-50 flex gap-2",
-                      isMobile ? "top-6 left-6" : "top-4 left-6"
-                    )}>
-                      <button 
-                        onClick={() => setActiveApp(null)}
-                        className={cn(
-                          "rounded-full bg-red-500 hover:bg-red-600 transition-colors shadow-sm",
-                          isMobile ? "w-6 h-6 flex items-center justify-center" : "w-3 h-3"
-                        )}
-                      >
-                        {isMobile && <X className="w-4 h-4 text-white" />}
-                      </button>
-                      {!isMobile && (
-                        <>
-                          <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                          <div className="w-3 h-3 rounded-full bg-green-500" />
-                        </>
-                      )}
-                    </div>
-                    <div className="pt-2 h-full">
-                      <Finder />
-                    </div>
-                  </div>
-                </motion.div>
+                  {activeApp === 'finder' && <Finder />}
+                </Window>
               )}
             </AnimatePresence>
           </motion.div>
