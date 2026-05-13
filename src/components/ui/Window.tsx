@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Maximize2, Minimize2, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -18,6 +18,7 @@ export default function Window({ app, onClose, children }: WindowProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
+  const dragControls = useDragControls();
 
   const toggleMaximize = () => setIsMaximized(!isMaximized);
   const refreshIframe = () => {
@@ -44,7 +45,8 @@ export default function Window({ app, onClose, children }: WindowProps) {
       exit={isMobile ? { x: '100%' } : { opacity: 0, scale: 0.9 }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       drag={!isMaximized && !isMobile}
-      dragHandle=".window-header"
+      dragControls={dragControls}
+      dragListener={false}
       dragConstraints={{ left: -500, right: 500, top: -300, bottom: 300 }}
       className={cn(
         "fixed z-[90] flex flex-col pointer-events-none",
@@ -59,10 +61,13 @@ export default function Window({ app, onClose, children }: WindowProps) {
         isMaximized ? "rounded-none" : "rounded-[32px]"
       )}>
         {/* Bandeau (Header) - act as drag handle */}
-        <div className={cn(
-          "window-header h-14 flex items-center justify-between px-6 border-b border-white/5 bg-white/[0.03] select-none cursor-grab active:cursor-grabbing",
-          isMobile ? "pt-12 h-24" : ""
-        )}>
+        <div 
+          onPointerDown={(e) => dragControls.start(e)}
+          className={cn(
+            "window-header h-14 flex items-center justify-between px-6 border-b border-white/5 bg-white/[0.03] select-none cursor-grab active:cursor-grabbing",
+            isMobile ? "pt-12 h-24" : ""
+          )}
+        >
           {/* Traffic Lights */}
           <div className="flex items-center gap-2">
             <button 
