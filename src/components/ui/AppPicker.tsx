@@ -16,7 +16,10 @@ const SUGGESTED_APPS = [
   { name: 'LinkedIn', url: 'https://www.linkedin.com', icon: 'https://upload.wikimedia.org/wikipedia/commons/8/81/LinkedIn_icon.svg' },
 ];
 
+import { useIsMobile } from '@/hooks/useIsMobile';
+
 export default function AppPicker() {
+  const isMobile = useIsMobile();
   const { 
     apps, 
     addApp, 
@@ -50,9 +53,15 @@ export default function AppPicker() {
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 20, scale: 0.95 }}
-      className="fixed inset-x-0 bottom-32 z-[150] flex justify-center px-6 pointer-events-none"
+      className={cn(
+        "fixed inset-x-0 z-[200] flex justify-center px-6 pointer-events-none",
+        isMobile ? "inset-y-0 items-center bg-black/60 backdrop-blur-sm" : "bottom-32"
+      )}
     >
-      <div className="glass-dark w-full max-w-4xl rounded-[32px] p-6 shadow-3xl border border-white/10 pointer-events-auto relative overflow-hidden">
+      <div className={cn(
+        "glass-dark w-full max-w-4xl rounded-[32px] p-6 shadow-3xl border border-white/10 pointer-events-auto relative overflow-hidden",
+        isMobile ? "max-h-[80vh] overflow-y-auto" : ""
+      )}>
         {/* Background Glow */}
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
         
@@ -71,7 +80,10 @@ export default function AppPicker() {
           </button>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
+        <div className={cn(
+          "flex gap-4 pb-4 custom-scrollbar snap-x",
+          isMobile ? "flex-wrap justify-center overflow-y-auto" : "overflow-x-auto"
+        )}>
           {/* Custom App Option */}
           <button 
             onClick={() => {
@@ -96,7 +108,8 @@ export default function AppPicker() {
                 onClick={() => handleAdd(suggestion)}
                 className={cn(
                   "flex-shrink-0 w-40 h-40 rounded-3xl p-6 flex flex-col items-center justify-between transition-all snap-start relative group",
-                  isInstalled ? "opacity-40 cursor-not-allowed bg-black/20" : "bg-white/5 hover:bg-white/10 hover:scale-105 active:scale-95"
+                  isInstalled ? "opacity-40 cursor-not-allowed bg-black/20" : "bg-white/5 hover:bg-white/10 hover:scale-105 active:scale-95",
+                  isMobile ? "w-32 h-32 p-4" : "w-40 h-40"
                 )}
               >
                 <div className="w-16 h-16 relative">

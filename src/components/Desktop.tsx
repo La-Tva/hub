@@ -26,9 +26,12 @@ import HandoffManager from './HandoffManager';
 import GhostModeOverlay from './ui/GhostModeOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import MobileNav from './ui/MobileNav';
+import MobileHome from './ui/MobileHome';
 
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { LogIn, Loader2, LogOut, Plus, Settings, StickyNote, Layout, ImageIcon, Sun, Moon, EyeOff, Eye, Github, PlusCircle, Layers } from 'lucide-react';
+import { LogIn, Loader2, LogOut, Plus, Settings, StickyNote, Layout, ImageIcon, Sun, Moon, EyeOff, Eye, Github, PlusCircle, Layers, X } from 'lucide-react';
 
 export default function Desktop() {
   const { 
@@ -46,9 +49,11 @@ export default function Desktop() {
     showCalculator, toggleCalculator,
     showClipboard, toggleClipboard,
     isGhostModeActive, setGhostModeActive, setGhostModeLocked,
+    isMobileHomeOpen, setMobileHomeOpen,
     activeApp, setActiveApp, fetchData, isLoading, apps, setContextMenu 
   } = useSystemStore();
   const { data: session, status } = useSession();
+  const isMobile = useIsMobile();
   
   const [loginName, setLoginName] = React.useState('');
   const [loginPassword, setLoginPassword] = React.useState('');
@@ -183,7 +188,10 @@ export default function Desktop() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* SaaS LOGIN FORM CARD (Matching Settings Modal) */}
-              <div className="glass-dark w-full max-w-md min-h-[500px] rounded-[32px] p-10 shadow-3xl relative overflow-hidden border border-white/10 flex flex-col items-center">
+              <div className={cn(
+                "glass-dark w-full shadow-3xl relative overflow-hidden border border-white/10 flex flex-col items-center transition-all duration-500",
+                isMobile ? "max-w-[320px] min-h-0 p-6 rounded-[24px]" : "max-w-md min-h-[500px] rounded-[32px] p-10"
+              )}>
                 
                 {/* Logo removed as requested */}
                 <div className="mb-8 w-full" />
@@ -361,19 +369,27 @@ export default function Desktop() {
             </div>
 
             {/* Dock */}
-            {!isGhostModeActive && <Dock />}
+            {!isGhostModeActive && !isMobile && <Dock />}
             
             {/* Widget Toggles Dock */}
-            {!isGhostModeActive && <WidgetDock />}
+            {!isGhostModeActive && !isMobile && <WidgetDock />}
 
             {/* Spotlight Search */}
             <Spotlight />
 
-            {/* Global Context Menu */}
-            <ContextMenu />
+            {/* Mobile Navigation */}
+            {isMobile && !isGhostModeActive && <MobileNav />}
 
-            {/* Desktop Widgets */}
+            {/* Mobile Home Grid */}
             <AnimatePresence>
+              {isMobile && isMobileHomeOpen && <MobileHome />}
+            </AnimatePresence>
+
+            {/* Global Context Menu */}
+            {!isMobile && <ContextMenu />}
+
+            {/* Widgets Layer */}
+            <AnimatePresence mode="wait">
               {(showNotes || showWeather || showCalculator || showClipboard) && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -381,15 +397,26 @@ export default function Desktop() {
                   exit={{ opacity: 0, scale: 0.9 }}
                   className="absolute inset-0 z-0 pointer-events-none"
                 >
-                  <div className="absolute top-12 left-12 grid grid-cols-1 gap-6 pointer-events-auto">
-                    {showWeather && <WeatherWidget />}
-                    {showNotes && <NotesWidget />}
+                  <div className={cn(
+                    "absolute grid grid-cols-1 gap-4 pointer-events-auto transition-all duration-500",
+                    isMobile ? "top-[100px] left-1/2 -translate-x-1/2 w-[90%] items-center" : "top-12 left-12"
+                  )}>
+                    {showWeather && (
+                      <div className={cn(isMobile ? "scale-90 origin-top" : "")}>
+                        <WeatherWidget />
+                      </div>
+                    )}
+                    {showNotes && (
+                      <div className={cn(isMobile ? "scale-90 origin-top" : "")}>
+                        <NotesWidget />
+                      </div>
+                    )}
                     {showCalculator && (
                       <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="w-fit"
+                        initial={{ opacity: 0, x: isMobile ? 0 : -20, y: isMobile ? 20 : 0 }}
+                        animate={{ opacity: 1, x: 0, y: 0 }}
+                        exit={{ opacity: 0, x: isMobile ? 0 : -20, y: isMobile ? 20 : 0 }}
+                        className={cn("w-fit mx-auto", isMobile ? "scale-90 origin-top" : "")}
                       >
                         <Calculator />
                       </motion.div>
@@ -397,12 +424,16 @@ export default function Desktop() {
                   </div>
 
                   {/* Top Center Widgets (Clipboard) - Above the Clock */}
-                  <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+                  <div className={cn(
+                    "absolute z-10 pointer-events-auto",
+                    isMobile ? "top-24 left-1/2 -translate-x-1/2" : "top-6 left-1/2 -translate-x-1/2"
+                  )}>
                     {showClipboard && (
                       <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
+                        className={isMobile ? "scale-90 origin-top" : ""}
                       >
                         <ClipboardWidget />
                       </motion.div>
@@ -452,18 +483,29 @@ export default function Desktop() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/20 backdrop-blur-sm"
+                  className={cn(
+                    "fixed inset-0 z-[110] flex items-center justify-center backdrop-blur-md",
+                    isMobile ? "p-0" : "p-8 bg-black/20"
+                  )}
                 >
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="glass-dark w-full max-w-2xl h-[600px] rounded-[32px] p-8 shadow-2xl relative overflow-hidden pointer-events-auto border border-white/10"
+                    exit={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.9, y: 20 }}
+                    className={cn(
+                      "glass-dark relative overflow-hidden pointer-events-auto border border-white/10 shadow-2xl",
+                      isMobile ? "w-full h-full rounded-none pt-16 px-4 pb-8" : "w-full max-w-2xl h-[600px] rounded-[32px] p-8"
+                    )}
                   >
                     <button 
                       onClick={() => setSettingsOpen(false)}
-                      className="absolute top-6 left-6 z-50 w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors shadow-lg"
-                    />
+                      className={cn(
+                        "absolute z-50 rounded-full bg-red-500 hover:bg-red-600 transition-colors shadow-lg",
+                        isMobile ? "top-6 right-6 w-8 h-8 flex items-center justify-center" : "top-6 left-6 w-3 h-3"
+                      )}
+                    >
+                      {isMobile && <X className="w-5 h-5 text-white" />}
+                    </button>
                     <SettingsModal />
                   </motion.div>
                   <div className="absolute inset-0 -z-10" onClick={() => setSettingsOpen(false)} />
@@ -475,19 +517,37 @@ export default function Desktop() {
             <AnimatePresence>
               {activeApp === 'finder' && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                  className="fixed inset-0 z-[90] flex items-center justify-center p-12 pointer-events-none"
+                  initial={isMobile ? { x: '100%' } : { opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                  exit={isMobile ? { x: '100%' } : { opacity: 0, scale: 0.9, y: 20 }}
+                  className={cn(
+                    "fixed inset-0 z-[90] flex items-center justify-center pointer-events-none",
+                    isMobile ? "p-0" : "p-12"
+                  )}
                 >
-                  <div className="glass-dark w-full max-w-4xl h-[600px] rounded-3xl shadow-2xl relative overflow-hidden pointer-events-auto border border-white/10">
-                    <div className="absolute top-4 left-6 z-50 flex gap-2">
+                  <div className={cn(
+                    "glass-dark relative overflow-hidden pointer-events-auto border border-white/10 shadow-2xl",
+                    isMobile ? "w-full h-full rounded-none pt-16" : "w-full max-w-4xl h-[600px] rounded-3xl"
+                  )}>
+                    <div className={cn(
+                      "absolute z-50 flex gap-2",
+                      isMobile ? "top-6 left-6" : "top-4 left-6"
+                    )}>
                       <button 
                         onClick={() => setActiveApp(null)}
-                        className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                        className={cn(
+                          "rounded-full bg-red-500 hover:bg-red-600 transition-colors shadow-sm",
+                          isMobile ? "w-6 h-6 flex items-center justify-center" : "w-3 h-3"
+                        )}
+                      >
+                        {isMobile && <X className="w-4 h-4 text-white" />}
+                      </button>
+                      {!isMobile && (
+                        <>
+                          <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                          <div className="w-3 h-3 rounded-full bg-green-500" />
+                        </>
+                      )}
                     </div>
                     <div className="pt-2 h-full">
                       <Finder />

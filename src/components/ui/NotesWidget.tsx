@@ -3,8 +3,10 @@ import { StickyNote, Plus, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSystemStore } from '@/store/useSystemStore';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 export default function NotesWidget() {
+  const isMobile = useIsMobile();
   const { notes, setNotes, setSettingsOpen, toggleNotes } = useSystemStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +34,10 @@ export default function NotesWidget() {
         e.stopPropagation();
         setIsMenuOpen(!isMenuOpen);
       }}
-      className="p-6 rounded-[32px] w-72 h-72 cursor-grab active:cursor-grabbing flex flex-col relative group"
+      className={cn(
+        "rounded-[32px] cursor-grab active:cursor-grabbing flex flex-col relative group",
+        isMobile ? "p-4 w-full max-w-[280px] h-64" : "p-6 w-72 h-72"
+      )}
     >
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className="flex items-center gap-2.5 text-white/60">

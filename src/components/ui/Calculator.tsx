@@ -10,12 +10,14 @@ import {
   Delete, Percent, Settings, Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 export default function Calculator() {
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { setActiveApp, calculatorSettings, setCalculatorSettings, toggleCalculator, setSettingsOpen } = useSystemStore();
+  const isMobile = useIsMobile();
 
   const [display, setDisplay] = useState('0');
   const [equation, setEquation] = useState('');
@@ -123,7 +125,10 @@ export default function Calculator() {
         e.stopPropagation();
         setIsMenuOpen(!isMenuOpen);
       }}
-      className="flex flex-col w-[400px] bg-[#1c1c1e]/40 backdrop-blur-3xl p-8 rounded-[48px] border border-white/5 select-none shadow-2xl relative group cursor-grab active:cursor-grabbing"
+      className={cn(
+        "flex flex-col bg-[#1c1c1e]/40 backdrop-blur-3xl rounded-[48px] border border-white/5 select-none shadow-2xl relative group cursor-grab active:cursor-grabbing transition-all duration-500",
+        isMobile ? "w-full max-w-[320px] p-6" : "w-[400px] p-8"
+      )}
     >
       
       {/* Context Menu */}
@@ -184,7 +189,7 @@ export default function Calculator() {
       <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full group-hover:bg-blue-500/15 transition-all" />
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-8 px-2 relative z-10">
+      <div className={cn("flex items-center justify-between px-2 relative z-10", isMobile ? "mb-4" : "mb-8")}>
         <div className="flex items-center gap-2">
            <button 
              onClick={() => setCalculatorSettings({ showHistory: !showHistory })}
@@ -208,13 +213,13 @@ export default function Calculator() {
             key={equation}
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-white/30 text-sm font-medium tracking-tight mb-2 h-5"
+            className={cn("text-white/30 font-medium tracking-tight h-5", isMobile ? "text-xs mb-1" : "text-sm mb-2")}
           >
             {equation}
           </motion.p>
         </AnimatePresence>
         <motion.div 
-          className="text-7xl font-light text-white tracking-tighter"
+          className={cn("font-light text-white tracking-tighter", isMobile ? "text-5xl" : "text-7xl")}
         >
           {display}
         </motion.div>
@@ -227,7 +232,8 @@ export default function Calculator() {
             key={i}
             onClick={btn.action}
             className={cn(
-              "h-20 rounded-[28px] text-xl font-bold flex items-center justify-center transition-all active:scale-95 shadow-lg",
+              "rounded-[28px] font-bold flex items-center justify-center transition-all active:scale-95 shadow-lg",
+              isMobile ? "h-14 text-lg" : "h-20 text-xl",
               btn.wide ? "col-span-2 px-8" : "",
               btn.type === 'number' ? "bg-white/5 text-white hover:bg-white/10 border border-white/5" :
               btn.type === 'action' ? "bg-white/10 text-white/80 hover:bg-white/20" :

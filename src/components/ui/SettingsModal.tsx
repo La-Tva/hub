@@ -6,6 +6,7 @@ import { Plus, Trash2, X, Globe, Link as LinkIcon, Image as ImageIcon, LogOut, S
 import { signOut } from 'next-auth/react';
 import { motion, Reorder } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 export default function SettingsModal() {
   const { 
@@ -13,6 +14,7 @@ export default function SettingsModal() {
     apps, addApp, removeApp, reorderApps, setSettingsOpen, settingsSection,
     calculatorSettings, setCalculatorSettings
   } = useSystemStore();
+  const isMobile = useIsMobile();
   
   const wallpaperRef = useRef<HTMLDivElement>(null);
   const appsRef = useRef<HTMLDivElement>(null);
@@ -106,8 +108,10 @@ export default function SettingsModal() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header (Close button is in Desktop.tsx/Modal Frame) */}
-      <div className="flex items-center gap-4 mb-8 pl-10">
-        <h2 className="text-2xl font-semibold text-white tracking-tight">Préférences Système</h2>
+      <div className={cn("flex items-center gap-4 mb-8", isMobile ? "px-2" : "pl-10")}>
+        <h2 className={cn("font-semibold text-white tracking-tight", isMobile ? "text-xl" : "text-2xl")}>
+          {isMobile ? "Réglages" : "Préférences Système"}
+        </h2>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar pb-10" ref={scrollContainerRef}>
@@ -142,7 +146,7 @@ export default function SettingsModal() {
 
             <div className="space-y-3">
               <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] ml-1">Fonds d'écran récents</span>
-              <div className="grid grid-cols-4 gap-3">
+              <div className={cn("grid gap-3", isMobile ? "grid-cols-2" : "grid-cols-4")}>
                 {wallpaperHistory.map((url, idx) => (
                   <div key={idx} className="group relative aspect-video rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all bg-black/50">
                     <button 
@@ -163,7 +167,7 @@ export default function SettingsModal() {
                   </div>
                 ))}
                 {wallpaperHistory.length === 0 && (
-                  <div className="col-span-4 py-8 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl bg-white/[0.02]">
+                  <div className={cn("py-8 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl bg-white/[0.02]", isMobile ? "col-span-2" : "col-span-4")}>
                     <ImageIcon className="w-6 h-6 text-white/10 mb-2" />
                     <span className="text-[10px] text-white/20 uppercase tracking-widest">Aucun historique</span>
                   </div>

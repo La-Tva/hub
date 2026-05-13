@@ -95,3 +95,21 @@ body {
 *::-webkit-scrollbar {
   display: none;
 }
+
+/* Mobile Utilities */
+.touch-area {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tap-highlight-none {
+  -webkit-tap-highlight-color: transparent;
+}

@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Cloud, Sun, CloudRain, Wind } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSystemStore } from '@/store/useSystemStore';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 
 export default function WeatherWidget() {
+  const isMobile = useIsMobile();
   const { weatherCity, setWeatherCity, setSettingsOpen, toggleWeather } = useSystemStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditingCity, setIsEditingCity] = useState(false);
@@ -63,7 +65,10 @@ export default function WeatherWidget() {
         e.stopPropagation();
         setIsMenuOpen(!isMenuOpen);
       }}
-      className="p-6 rounded-[32px] w-64 cursor-grab active:cursor-grabbing group relative"
+      className={cn(
+        "rounded-[32px] cursor-grab active:cursor-grabbing group relative",
+        isMobile ? "p-4 w-full max-w-[280px]" : "p-6 w-64"
+      )}
     >
       <div className="flex justify-between items-start mb-4 relative z-10">
         <div className="flex-1">
@@ -88,7 +93,7 @@ export default function WeatherWidget() {
             />
           ) : (
             <div className={cn("transition-opacity duration-300", isLoading ? "opacity-20" : "opacity-100")}>
-              <h3 className="text-xl font-bold" style={{ color: 'var(--foreground-rgb)' }}>{weatherCity}</h3>
+              <h3 className={cn("font-bold", isMobile ? "text-lg" : "text-xl")} style={{ color: 'var(--foreground-rgb)' }}>{weatherCity}</h3>
               <p className="text-sm opacity-40 capitalize" style={{ color: 'var(--foreground-rgb)' }}>
                 {weatherData?.condition || (isLoading ? 'Chargement...' : 'Indisponible')}
               </p>
@@ -129,8 +134,8 @@ export default function WeatherWidget() {
       </div>
       
       <div className={cn("transition-all duration-500", isLoading ? "opacity-20 translate-y-2" : "opacity-100 translate-y-0")}>
-        <div className="flex items-end gap-2 mb-6">
-          <span className="text-5xl font-light" style={{ color: 'var(--foreground-rgb)' }}>{weatherData?.temp || '--'}°</span>
+        <div className={cn("flex items-end gap-2", isMobile ? "mb-4" : "mb-6")}>
+          <span className={cn("font-light", isMobile ? "text-4xl" : "text-5xl")} style={{ color: 'var(--foreground-rgb)' }}>{weatherData?.temp || '--'}°</span>
           <div className="flex flex-col text-xs opacity-40 mb-1" style={{ color: 'var(--foreground-rgb)' }}>
             <span>Max: {weatherData?.max || '--'}°</span>
             <span>Min: {weatherData?.min || '--'}°</span>

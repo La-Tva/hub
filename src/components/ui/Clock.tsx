@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSystemStore } from '@/store/useSystemStore';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 
 export default function Clock() {
+  const isMobile = useIsMobile();
   const { setSettingsOpen, toggleClock } = useSystemStore();
   const [time, setTime] = useState(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -42,7 +44,10 @@ export default function Clock() {
         e.stopPropagation();
         setIsMenuOpen(!isMenuOpen);
       }}
-      className="absolute top-[180px] left-1/2 -translate-x-1/2 z-0 pointer-events-auto select-none text-center group transition-all"
+      className={cn(
+        "absolute z-0 pointer-events-auto select-none text-center group transition-all",
+        isMobile ? "top-[140px] left-1/2 -translate-x-1/2" : "top-[180px] left-1/2 -translate-x-1/2"
+      )}
     >
       <div className="relative inline-block">
         <AnimatePresence>
@@ -73,11 +78,23 @@ export default function Clock() {
           )}
         </AnimatePresence>
         
-        <h1 className="text-[72px] font-bold tracking-tighter drop-shadow-2xl leading-none" style={{ color: 'var(--foreground-rgb)' }}>
+        <h1 
+          className={cn(
+            "font-bold tracking-tighter drop-shadow-2xl leading-none",
+            isMobile ? "text-[52px]" : "text-[72px]"
+          )} 
+          style={{ color: 'var(--foreground-rgb)' }}
+        >
           {timeString}
         </h1>
       </div>
-      <p className="text-sm font-medium uppercase tracking-[0.3em] -mt-2" style={{ color: 'var(--text-secondary)' }}>
+      <p 
+        className={cn(
+          "font-medium uppercase tracking-[0.3em] -mt-2",
+          isMobile ? "text-[10px]" : "text-sm"
+        )} 
+        style={{ color: 'var(--text-secondary)' }}
+      >
         {time.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
       </p>
     </motion.div>

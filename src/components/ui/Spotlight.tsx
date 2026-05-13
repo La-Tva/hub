@@ -6,6 +6,7 @@ import { Search, X, Command, CornerDownLeft, Calculator } from 'lucide-react';
 import { useSystemStore, AppConfig } from '@/store/useSystemStore';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 type SpotlightResult = 
   | { type: 'app'; data: AppConfig }
@@ -16,7 +17,8 @@ export default function Spotlight() {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { apps, setActiveApp } = useSystemStore();
+  const { apps, setActiveApp, setSettingsOpen, toggleCalculator } = useSystemStore();
+  const isMobile = useIsMobile();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -86,10 +88,16 @@ export default function Spotlight() {
 
   const handleLaunch = (result: SpotlightResult) => {
     if (result.type === 'app') {
-      if (result.data.isInternal) {
-        setActiveApp(result.data.id);
-      } else {
-        window.open(result.data.url, '_blank');
+      const app = result.data;
+      if (app.id === 'settings') {
+        setSettingsOpen(true);
+      } else if (app.id === 'calculator' || app.url === 'calculator') {
+        toggleCalculator();
+      } else if (app.isInternal) {
+        setActiveApp(app.id);
+      } else if (app.url) {
+        const url = app.url.startsWith('http') ? app.url : `https://${app.url}`;
+        window.open(url, '_blank');
       }
     } else if (result.type === 'calculator') {
       navigator.clipboard.writeText(result.result);
@@ -135,14 +143,20 @@ export default function Spotlight() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
           />
-          <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[20vh] pointer-events-none">
+          <div className={cn(
+            "fixed inset-0 z-[9999] flex items-start justify-center pointer-events-none",
+            isMobile ? "pt-12" : "pt-[20vh]"
+          )}>
             <motion.div
               ref={containerRef}
               initial={{ opacity: 0, scale: 0.95, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full max-w-[600px] bg-white/10 backdrop-blur-[50px] border border-white/20 rounded-2xl shadow-[0_20px_70px_-10px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto"
+              className={cn(
+                "bg-white/10 backdrop-blur-[50px] border border-white/20 rounded-2xl shadow-[0_20px_70px_-10px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto",
+                isMobile ? "w-[92%]" : "w-full max-w-[600px]"
+              )}
             >
               <div className="relative flex items-center px-4 py-4 border-b border-white/10">
                 <Search className="w-6 h-6 text-white/50 mr-3" />
@@ -156,7 +170,10 @@ export default function Spotlight() {
                     setSelectedIndex(0);
                   }}
                   onKeyDown={onKeyDown}
-                  className="flex-1 bg-transparent border-none outline-none text-xl text-white placeholder:text-white/30"
+                  className={cn(
+                    "flex-1 bg-transparent border-none outline-none text-white placeholder:text-white/30",
+                    isMobile ? "text-base" : "text-xl"
+                  )}
                 />
                 <div className="flex items-center gap-2">
                   <span className="px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-[10px] text-white/50">ESC</span>

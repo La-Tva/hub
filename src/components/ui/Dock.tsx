@@ -66,7 +66,8 @@ function DockIcon({
     if (app.isInternal) {
       setActiveApp(app.id);
     } else if (app.url) {
-      window.open(app.url, '_blank');
+      const url = app.url.startsWith('http') ? app.url : `https://${app.url}`;
+      window.open(url, '_blank');
     }
   };
 

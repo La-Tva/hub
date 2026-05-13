@@ -58,6 +58,7 @@ interface SystemState {
     soundEnabled: boolean;
     showHistory: boolean;
   };
+  isMobileHomeOpen: boolean;
   
   // Actions
   fetchData: () => Promise<void>;
@@ -115,6 +116,7 @@ interface SystemState {
   setGhostModeActive: (active: boolean) => void;
   setGhostModeLocked: (locked: boolean) => void;
   setGhostModePIN: (pin: string | null) => Promise<void>;
+  setMobileHomeOpen: (isOpen: boolean) => void;
 }
 
 export type ContextMenuItem = {
@@ -174,6 +176,7 @@ export const useSystemStore = create<SystemState>()(
         soundEnabled: true,
         showHistory: false
       },
+      isMobileHomeOpen: false,
       contextMenu: {
         isOpen: false,
         x: 0,
@@ -602,6 +605,7 @@ export const useSystemStore = create<SystemState>()(
         set({ ghostModePIN: pin });
         await get().saveSettings({ ghostModePIN: pin });
       },
+      setMobileHomeOpen: (isOpen) => set({ isMobileHomeOpen: isOpen }),
     }),
     {
       name: 'system-storage',
